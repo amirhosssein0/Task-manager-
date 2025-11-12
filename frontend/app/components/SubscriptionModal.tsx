@@ -74,9 +74,14 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
               </label>
               <label className={`block cursor-pointer border rounded-lg p-4 ${plan === 'yearly' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-300 dark:border-slate-600'}`}>
                 <input type="radio" name="plan" className="mr-2" checked={plan === 'yearly'} onChange={() => setPlan('yearly')} />
-                <span className="font-semibold text-gray-900 dark:text-gray-100">Yearly</span>
-                <span className="ml-2 text-emerald-700 dark:text-emerald-400 font-bold">$200</span>
-                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(save $40)</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Yearly</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-red-600 dark:text-red-400 font-bold line-through">$240</span>
+                    <span className="text-emerald-700 dark:text-emerald-400 font-bold">$200</span>
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 rounded">Save $40</span>
+                  </div>
+                </div>
               </label>
               <p className="text-xs text-gray-600 dark:text-gray-400">New users start with a 14-day free trial.</p>
             </div>

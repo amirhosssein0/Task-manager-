@@ -29,6 +29,7 @@ export default function TasksPage() {
     category: '',
   });
   const [showSubscribe, setShowSubscribe] = useState(false);
+  const [subscriptionExpired, setSubscriptionExpired] = useState(false);
 
   useEffect(() => {
     fetchTasks();
@@ -60,9 +61,12 @@ export default function TasksPage() {
       if (response.ok) {
         const data = await response.json();
         setTasks(data);
+        setSubscriptionExpired(false);
       } else if (response.status === 401) {
         router.push('/login');
       } else if (response.status === 403) {
+        setSubscriptionExpired(true);
+        setTasks([]);
         setShowSubscribe(true);
       }
     } catch (error) {
@@ -89,6 +93,7 @@ export default function TasksPage() {
         setFormData({ title: '', description: '', due_date: '', category: '' });
         setShowAddForm(false);
       } else if (response.status === 403) {
+        setSubscriptionExpired(true);
         setShowSubscribe(true);
       }
     } catch (error) {
@@ -113,6 +118,7 @@ export default function TasksPage() {
         setEditingTask(null);
         setFormData({ title: '', description: '', due_date: '', category: '' });
       } else if (response.status === 403) {
+        setSubscriptionExpired(true);
         setShowSubscribe(true);
       }
     } catch (error) {
@@ -133,6 +139,7 @@ export default function TasksPage() {
       if (response.ok) {
         fetchTasks();
       } else if (response.status === 403) {
+        setSubscriptionExpired(true);
         setShowSubscribe(true);
       }
     } catch (error) {
@@ -152,6 +159,7 @@ export default function TasksPage() {
       if (response.ok) {
         fetchTasks();
       } else if (response.status === 403) {
+        setSubscriptionExpired(true);
         setShowSubscribe(true);
       }
     } catch (error) {
@@ -197,6 +205,45 @@ export default function TasksPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show subscription expired message if subscription is expired
+  if (subscriptionExpired) {
+    return (
+      <div className="max-w-6xl mx-auto py-8 px-4">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">My Tasks</h1>
+        </div>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 text-center">
+          <div className="mb-4">
+            <svg className="w-16 h-16 mx-auto text-red-600 dark:text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <h2 className="text-xl font-semibold text-red-800 dark:text-red-200 mb-2">
+              تریال شما به پایان رسیده است
+            </h2>
+            <p className="text-red-700 dark:text-red-300 mb-6">
+              برای مشاهده و مدیریت تسک‌های خود، لطفاً اشتراک تهیه کنید.
+            </p>
+            <button
+              onClick={() => setShowSubscribe(true)}
+              className="px-6 py-3 bg-emerald-700 dark:bg-emerald-600 text-white rounded-lg hover:bg-emerald-800 dark:hover:bg-emerald-700 transition-colors font-medium text-lg"
+            >
+              اشتراک بگیرید
+            </button>
+          </div>
+        </div>
+        <SubscriptionModal
+          isOpen={showSubscribe}
+          onClose={() => setShowSubscribe(false)}
+          onSuccess={() => {
+            setShowSubscribe(false);
+            setSubscriptionExpired(false);
+            fetchTasks();
+          }}
+        />
       </div>
     );
   }

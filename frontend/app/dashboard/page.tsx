@@ -114,19 +114,27 @@ export default function DashboardPage() {
       {stats && (
         <div className="mb-4">
           {/* @ts-ignore allow extra keys from backend */}
-          {((stats as any).trial_days_remaining ?? 0) > 0 && (stats as any).subscription_plan === 'trial' ? (
+          {(stats as any).subscription_plan === 'trial' && (stats as any).subscription_status === 'active' && ((stats as any).trial_days_remaining ?? 0) > 0 ? (
             <div className="rounded-lg p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
-              Trial days remaining: <strong>{(stats as any).trial_days_remaining}</strong>
+              <div className="flex items-center justify-between">
+                <span>
+                  Free trial days remaining: <strong className="text-lg">{(stats as any).trial_days_remaining}</strong> days
+                </span>
+              </div>
             </div>
-          ) : (stats as any).subscription_status !== 'active' ? (
-            <div className="rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 flex items-center justify-between">
-              <span>Your trial has ended. Subscribe to continue managing tasks.</span>
+          ) : (stats as any).subscription_plan === 'trial' && ((stats as any).subscription_status === 'expired' || ((stats as any).trial_days_remaining ?? 0) === 0) ? (
+            <div className="rounded-lg p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 flex items-center justify-between">
+              <span className="font-medium">Your trial has ended. Please subscribe to continue using the service.</span>
               <button
                 onClick={() => setShowSubscribe(true)}
-                className="px-4 py-2 bg-emerald-700 dark:bg-emerald-600 text-white rounded-lg hover:bg-emerald-800 dark:hover:bg-emerald-700"
+                className="px-4 py-2 bg-emerald-700 dark:bg-emerald-600 text-white rounded-lg hover:bg-emerald-800 dark:hover:bg-emerald-700 transition-colors whitespace-nowrap"
               >
-                Subscribe
+                Subscribe Now
               </button>
+            </div>
+          ) : (stats as any).subscription_plan !== 'trial' && (stats as any).subscription_status === 'active' ? (
+            <div className="rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200">
+              <span>Active subscription: <strong>{(stats as any).subscription_plan === 'monthly' ? 'Monthly ($20)' : 'Yearly ($200)'}</strong></span>
             </div>
           ) : null}
         </div>

@@ -29,7 +29,13 @@ class Subscription(models.Model):
 	updated_at = models.DateTimeField(auto_now=True)
 
 	def is_active(self) -> bool:
-		return self.status == self.STATUS_ACTIVE and self.end_date >= timezone.now().date()
+		# Auto-expire if end_date has passed
+		if self.end_date < timezone.now().date():
+			if self.status == self.STATUS_ACTIVE:
+				self.status = self.STATUS_EXPIRED
+				self.save(update_fields=['status'])
+			return False
+		return self.status == self.STATUS_ACTIVE
 
 	def days_remaining(self) -> int:
 		delta = (self.end_date - timezone.now().date()).days

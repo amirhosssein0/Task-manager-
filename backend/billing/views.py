@@ -9,13 +9,22 @@ from .serializers import SubscriptionSerializer
 
 
 def _get_or_create_trial(user) -> Subscription:
-	sub = getattr(user, 'subscription', None)
-	if sub:
+	# Use try/except for OneToOneField access
+	try:
+		sub = user.subscription
+		# If subscription exists but is expired trial, don't recreate
 		return sub
-	# Create 14-day trial
-	start = timezone.now().date()
-	end = start + timedelta(days=14)
-	return Subscription.objects.create(user=user, plan=Subscription.PLAN_TRIAL, status=Subscription.STATUS_ACTIVE, start_date=start, end_date=end)
+	except Subscription.DoesNotExist:
+		# Create 14-day trial
+		start = timezone.now().date()
+		end = start + timedelta(days=14)
+		return Subscription.objects.create(
+			user=user,
+			plan=Subscription.PLAN_TRIAL,
+			status=Subscription.STATUS_ACTIVE,
+			start_date=start,
+			end_date=end
+		)
 
 
 @api_view(["GET"])

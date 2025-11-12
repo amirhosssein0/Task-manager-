@@ -8,7 +8,7 @@ import { API_BASE } from './lib/config';
 export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
-  const [billing, setBilling] = useState<{ plan?: string; status?: string; trial_days_remaining?: number } | null>(null);
+  const [billing, setBilling] = useState<{ plan?: string; status?: string; trial_days_remaining?: number; days_remaining?: number } | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -59,9 +59,13 @@ export default function HomePage() {
               <span className="inline-block px-3 py-1 rounded-full text-sm bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
                 Premium active ({billing.plan})
               </span>
-            ) : billing.plan === 'trial' ? (
-              <span className="inline-block px-3 py-1 rounded-full text-sm bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
-                Trial days remaining: {billing.trial_days_remaining ?? 0}
+            ) : billing.plan === 'trial' && billing.status === 'active' ? (
+              <span className="inline-block px-4 py-2 rounded-lg text-sm bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-medium">
+                Free trial: <strong className="text-lg">{billing.trial_days_remaining ?? billing.days_remaining ?? 0}</strong> days remaining
+              </span>
+            ) : billing.plan === 'trial' && billing.status === 'expired' ? (
+              <span className="inline-block px-4 py-2 rounded-lg text-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 font-medium">
+                Trial expired - Subscribe to continue
               </span>
             ) : null}
           </div>
@@ -115,8 +119,8 @@ export default function HomePage() {
         <p className="text-base mb-4 opacity-90">
           {isAuthed && billing && billing.status === 'active' && billing.plan !== 'trial' ? (
             <>🎉 You're on Premium Plan!</>
-          ) : isAuthed && billing && billing.plan === 'trial' ? (
-            <>Free trial days remaining: {billing.trial_days_remaining ?? 0}</>
+          ) : isAuthed && billing && billing.plan === 'trial' && billing.status === 'active' ? (
+            <>Free trial: <strong>{billing.trial_days_remaining ?? billing.days_remaining ?? 0}</strong> days remaining</>
           ) : (
             <>Get 14 days free, then $20/month or $200/year</>
           )}

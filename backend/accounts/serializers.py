@@ -46,7 +46,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-	old_password = serializers.CharField(write_only=True)
+	old_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 	new_password = serializers.CharField(write_only=True)
 
 	def validate_new_password(self, value):

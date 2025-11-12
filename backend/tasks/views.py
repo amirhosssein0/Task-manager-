@@ -18,14 +18,9 @@ class TaskViewSet(viewsets.ModelViewSet):
 
 	def get_queryset(self):
 		# Enforce subscription/trial access
-		sub = getattr(self.request.user, 'subscription', None)
-		if not sub:
-			# allow creating trial lazily
-			from datetime import timedelta
-			from django.utils import timezone
-			start = timezone.now().date()
-			end = start + timedelta(days=14)
-			sub = Subscription.objects.create(user=self.request.user, plan=Subscription.PLAN_TRIAL, status=Subscription.STATUS_ACTIVE, start_date=start, end_date=end)
+		from billing.views import _get_or_create_trial
+		sub = _get_or_create_trial(self.request.user)
+		# Check if subscription is active (this will auto-expire if needed)
 		if not sub.is_active():
 			raise PermissionDenied("Subscription required. Please subscribe to continue using tasks.")
 		qs = Task.objects.filter(user=self.request.user)
@@ -35,8 +30,9 @@ class TaskViewSet(viewsets.ModelViewSet):
 		return qs
 
 	def perform_create(self, serializer):
-		sub = getattr(self.request.user, 'subscription', None)
-		if not (sub and sub.is_active()):
+		from billing.views import _get_or_create_trial
+		sub = _get_or_create_trial(self.request.user)
+		if not sub.is_active():
 			raise PermissionDenied("Subscription required. Please subscribe to continue using tasks.")
 		serializer.save(user=self.request.user)
 
@@ -56,11 +52,24 @@ class TaskViewSet(viewsets.ModelViewSet):
 def dashboard(request):
 	user = request.user
 	period = request.query_params.get("period", "today")
-	# Subscription/trial info
-	sub = getattr(user, 'subscription', None)
-	trial_days_remaining = sub.days_remaining() if sub and sub.plan == Subscription.PLAN_TRIAL and sub.is_active() else 0
-	subscription_plan = sub.plan if sub else None
-	subscription_status = sub.status if sub else None
+	# Subscription/trial info - create trial if doesn't exist
+	from billing.views import _get_or_create_trial
+	try:
+		sub = user.subscription
+	except Subscription.DoesNotExist:
+		sub = _get_or_create_trial(user)
+	
+	# Check if active and update status if expired
+	is_active = sub.is_active()
+	
+	# Calculate trial days remaining (only for trial plan)
+	if sub.plan == Subscription.PLAN_TRIAL:
+		trial_days_remaining = sub.days_remaining()
+	else:
+		trial_days_remaining = 0
+	
+	subscription_plan = sub.plan
+	subscription_status = sub.status
 
 	today = date.today()
 	if period == "today":

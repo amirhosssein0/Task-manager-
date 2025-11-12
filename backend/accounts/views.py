@@ -1,12 +1,14 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.core.mail import send_mail
+from django.conf import settings
 from rest_framework import permissions, status
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import Profile
+from .models import Profile, PasswordResetToken
 from .serializers import SignupSerializer, ProfileSerializer, ChangePasswordSerializer
 
 
@@ -55,11 +57,26 @@ def delete_account(request):
 def change_password(request):
 	serializer = ChangePasswordSerializer(data=request.data)
 	serializer.is_valid(raise_exception=True)
-	old_password = serializer.validated_data["old_password"]
+	old_password = serializer.validated_data.get("old_password", "")
 	new_password = serializer.validated_data["new_password"]
 
-	if not request.user.check_password(old_password):
-		return Response({"old_password": ["Incorrect password"]}, status=status.HTTP_400_BAD_REQUEST)
+	# Check if user has a recently used temp password (within last 5 minutes)
+	# If so, allow password change without old_password
+	from django.utils import timezone
+	from datetime import timedelta
+	recent_temp_used = PasswordResetToken.objects.filter(
+		user=request.user,
+		used=True,
+		created_at__gte=timezone.now() - timedelta(minutes=5)
+	).exists()
+
+	if not recent_temp_used and old_password:
+		# Regular password change requires old password
+		if not request.user.check_password(old_password):
+			return Response({"old_password": ["Incorrect password"]}, status=status.HTTP_400_BAD_REQUEST)
+	elif not recent_temp_used and not old_password:
+		# Old password required if not using temp password
+		return Response({"old_password": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
 
 	request.user.set_password(new_password)
 	request.user.save()
@@ -69,11 +86,78 @@ def change_password(request):
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
 def password_reset(request):
-	# Stub endpoint for sending reset email
 	email = request.data.get("email")
 	if not email:
 		return Response({"email": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
-	# Pretend success
-	return Response({"detail": "If an account exists for this email, a reset link was sent."})
+	
+	try:
+		user = User.objects.get(email=email)
+	except User.DoesNotExist:
+		# Don't reveal if email exists
+		return Response({"detail": "If an account exists for this email, a temporary password was sent."})
+	
+	# Generate temp password
+	reset_token = PasswordResetToken.generate_temp_password(user)
+	
+	# Send email
+	try:
+		send_mail(
+			subject='Password Reset - Task Manager',
+			message=f'Your temporary password is: {reset_token.temp_password}\n\nThis password will expire in 24 hours. Please login and change your password immediately.',
+			from_email=settings.DEFAULT_FROM_EMAIL,
+			recipient_list=[email],
+			fail_silently=False,
+		)
+	except Exception as e:
+		# Log error but don't reveal to user
+		return Response({"detail": "If an account exists for this email, a temporary password was sent."})
+	
+	return Response({"detail": "If an account exists for this email, a temporary password was sent."})
+
+
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def login(request):
+	username = request.data.get("username")
+	password = request.data.get("password")
+	
+	if not username or not password:
+		return Response(
+			{"detail": "Username and password are required."},
+			status=status.HTTP_400_BAD_REQUEST
+		)
+	
+	# Check if it's a temp password
+	try:
+		user = User.objects.get(username=username)
+		reset_token = PasswordResetToken.objects.filter(
+			user=user,
+			temp_password=password.upper(),
+			used=False
+		).order_by('-created_at').first()
+		
+		if reset_token and reset_token.is_valid():
+			# Mark as used
+			reset_token.used = True
+			reset_token.save()
+			
+			# Return tokens with flag indicating temp password was used
+			tokens = _tokens_for_user(user)
+			tokens['temp_password_used'] = True
+			return Response(tokens)
+	except User.DoesNotExist:
+		pass
+	
+	# Regular authentication
+	user = authenticate(username=username, password=password)
+	if user:
+		tokens = _tokens_for_user(user)
+		tokens['temp_password_used'] = False
+		return Response(tokens)
+	
+	return Response(
+		{"detail": "Invalid credentials."},
+		status=status.HTTP_401_UNAUTHORIZED
+	)
 
 
