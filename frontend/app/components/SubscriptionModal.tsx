@@ -13,9 +13,9 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
   const [step, setStep] = useState<'plan' | 'payment' | 'processing' | 'success'>('plan');
   const [plan, setPlan] = useState<'monthly' | 'yearly'>('monthly');
   const [paymentData, setPaymentData] = useState({
-    cardNumber: process.env.NEXT_PUBLIC_TEST_CARD_NUMBER || '4242424242424242',
-    expiryDate: process.env.NEXT_PUBLIC_TEST_CARD_EXP || '01/28',
-    cvv: process.env.NEXT_PUBLIC_TEST_CARD_CVC || '123',
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
     name: '',
   });
 
@@ -114,11 +114,13 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
                 </label>
                 <input
                   type="text"
-                  placeholder="1234 5678 9012 3456"
+                  placeholder="1234 5678 1234 5678"
                   value={paymentData.cardNumber}
-                  onChange={(e) =>
-                    setPaymentData({ ...paymentData, cardNumber: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 16);
+                    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+                    setPaymentData({ ...paymentData, cardNumber: formatted });
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
@@ -131,9 +133,14 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
                     type="text"
                     placeholder="MM/YY"
                     value={paymentData.expiryDate}
-                    onChange={(e) =>
-                      setPaymentData({ ...paymentData, expiryDate: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      let formatted = digits;
+                      if (digits.length >= 3) {
+                        formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+                      }
+                      setPaymentData({ ...paymentData, expiryDate: formatted });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>
@@ -145,7 +152,12 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
                     type="text"
                     placeholder="123"
                     value={paymentData.cvv}
-                    onChange={(e) => setPaymentData({ ...paymentData, cvv: e.target.value })}
+                    onChange={(e) =>
+                      setPaymentData({
+                        ...paymentData,
+                        cvv: e.target.value.replace(/\D/g, '').slice(0, 3),
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>

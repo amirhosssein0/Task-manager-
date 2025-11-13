@@ -25,6 +25,16 @@ interface Task {
   created_at: string;
 }
 
+interface BillingStatus {
+  plan: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  transaction_id?: string;
+  trial_days_remaining?: number;
+  days_remaining?: number;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -37,10 +47,13 @@ export default function ProfilePage() {
     email: '',
   });
   const [uploading, setUploading] = useState(false);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
 
   useEffect(() => {
     fetchProfile();
     fetchUserTasks();
+    fetchBillingStatus();
   }, []);
 
   const getAuthHeaders = () => {
@@ -87,6 +100,28 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
+    }
+  };
+
+  const fetchBillingStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/billing/status/`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setBilling(data);
+      } else if (response.status === 401) {
+        router.push('/login');
+      } else {
+        setBilling(null);
+      }
+    } catch (error) {
+      console.error('Error fetching billing status:', error);
+      setBilling(null);
+    } finally {
+      setBillingLoading(false);
     }
   };
 
@@ -337,6 +372,99 @@ export default function ProfilePage() {
             </div>
           </div>
         )}
+
+        {/* Subscription Details */}
+        <div className="mt-8 border rounded-lg p-6 bg-gray-50 dark:bg-slate-900/40 border-gray-200 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              Subscription
+            </h2>
+            <Link
+              href="/dashboard"
+              className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline"
+            >
+              Manage subscription
+            </Link>
+          </div>
+          {billingLoading ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Loading subscription details...
+            </p>
+          ) : !billing ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No subscription information available.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-200">
+              <div className="space-y-1">
+                <p className="font-medium text-gray-900 dark:text-gray-100">Plan</p>
+                <p className="capitalize">
+                  {billing.plan === 'trial'
+                    ? 'Free Trial'
+                    : billing.plan === 'monthly'
+                    ? 'Monthly'
+                    : 'Yearly'}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-gray-900 dark:text-gray-100">Status</p>
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    billing.status === 'active'
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                  }`}
+                >
+                  {billing.status}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-gray-900 dark:text-gray-100">
+                  Start Date
+                </p>
+                <p>
+                  {billing.start_date
+                    ? new Date(billing.start_date).toLocaleDateString()
+                    : '—'}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-gray-900 dark:text-gray-100">
+                  Ends On
+                </p>
+                <p>
+                  {billing.end_date
+                    ? new Date(billing.end_date).toLocaleDateString()
+                    : '—'}
+                </p>
+              </div>
+              {billing.plan === 'trial' && (
+                <div className="space-y-1">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    Trial Days Remaining
+                  </p>
+                  <p>{billing.trial_days_remaining ?? billing.days_remaining ?? 0} days</p>
+                </div>
+              )}
+              {billing.plan !== 'trial' && (
+                <div className="space-y-1">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    Renews In
+                  </p>
+                  <p>{billing.days_remaining ?? 0} days</p>
+                </div>
+              )}
+              {billing.transaction_id && (
+                <div className="space-y-1 md:col-span-2">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    Last Transaction
+                  </p>
+                  <p className="font-mono text-sm">{billing.transaction_id}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Task History by Category */}
         <div className="mt-8">

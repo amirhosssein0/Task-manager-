@@ -1,5 +1,6 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, time
 from django.db.models import Count
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.response import Response
@@ -45,6 +46,15 @@ class TaskViewSet(viewsets.ModelViewSet):
 	def user_tasks(self, request):
 		all_qs = Task.objects.filter(user=request.user).order_by("-created_at")[:100]
 		return Response(TaskSerializer(all_qs, many=True).data)
+
+	@action(detail=True, methods=["post"], url_path="reschedule")
+	def reschedule(self, request, pk=None):
+		task = self.get_object()
+		if task.user != request.user:
+			raise PermissionDenied("You do not have permission to modify this task.")
+		task.due_date = timezone.localdate() + timedelta(days=1)
+		task.save(update_fields=["due_date", "updated_at"])
+		return Response(TaskSerializer(task).data)
 
 
 @api_view(["GET"])
@@ -100,6 +110,18 @@ def dashboard(request):
 			daily[key]["completed"] += 1
 	tasks_by_date = list(daily.values())
 
+	now = timezone.localtime()
+	today_date = now.date()
+	base_overdue = Task.objects.filter(user=user, completed=False)
+	overdue_qs = base_overdue.filter(due_date__lt=today_date)
+	if now.time() >= time(21, 0):
+		overdue_qs = overdue_qs | base_overdue.filter(due_date=today_date)
+	overdue_qs = overdue_qs.distinct()
+	overdue_tasks = [
+		{"id": task.id, "title": task.title, "due_date": task.due_date.isoformat()}
+		for task in overdue_qs
+	]
+
 	return Response({
 		"total_tasks": total,
 		"completed_tasks": completed,
@@ -110,4 +132,5 @@ def dashboard(request):
 		"trial_days_remaining": trial_days_remaining,
 		"subscription_plan": subscription_plan,
 		"subscription_status": subscription_status,
+		"overdue_tasks": overdue_tasks,
 	})

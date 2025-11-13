@@ -27,6 +27,14 @@ interface DashboardStats {
     total: number;
     completed: number;
   }>;
+  trial_days_remaining?: number;
+  subscription_plan?: string;
+  subscription_status?: string;
+  overdue_tasks?: Array<{
+    id: number;
+    title: string;
+    due_date: string;
+  }>;
 }
 
 export default function DashboardPage() {
@@ -93,6 +101,37 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDeleteOverdueTask = async (taskId: number) => {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/tasks/${taskId}/`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        fetchDashboardData();
+        fetchRecentTasks();
+      }
+    } catch (error) {
+      console.error('Error deleting overdue task:', error);
+    }
+  };
+
+  const handleRescheduleOverdueTask = async (taskId: number) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/tasks/${taskId}/reschedule/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        fetchDashboardData();
+        fetchRecentTasks();
+      }
+    } catch (error) {
+      console.error('Error rescheduling overdue task:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -111,6 +150,39 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4">
+      {stats?.overdue_tasks && stats.overdue_tasks.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {stats.overdue_tasks.map((task) => (
+            <div
+              key={task.id}
+              className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+            >
+              <div className="text-sm text-red-800 dark:text-red-200">
+                <p className="font-semibold">
+                  You still have not completed “{task.title}”
+                </p>
+                <p className="text-xs opacity-80">
+                  Original due date: {new Date(task.due_date).toLocaleDateString()}
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => handleDeleteOverdueTask(task.id)}
+                  className="px-3 py-1.5 text-sm font-medium rounded-lg border border-red-400 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-800/40 transition-colors"
+                >
+                  Delete task
+                </button>
+                <button
+                  onClick={() => handleRescheduleOverdueTask(task.id)}
+                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                >
+                  Move to tomorrow
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {stats && (
         <div className="mb-4">
           {/* @ts-ignore allow extra keys from backend */}

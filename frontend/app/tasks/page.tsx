@@ -12,6 +12,7 @@ interface Task {
   completed: boolean;
   due_date: string;
   category?: string;
+  label?: 'none' | 'yellow' | 'green' | 'blue' | 'red';
   created_at: string;
 }
 
@@ -27,6 +28,7 @@ export default function TasksPage() {
     description: '',
     due_date: '',
     category: '',
+    label: 'none' as 'none' | 'yellow' | 'green' | 'blue' | 'red',
   });
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
@@ -90,7 +92,7 @@ export default function TasksPage() {
 
       if (response.ok) {
         fetchTasks();
-        setFormData({ title: '', description: '', due_date: '', category: '' });
+        setFormData({ title: '', description: '', due_date: '', category: '', label: 'none' });
         setShowAddForm(false);
       } else if (response.status === 403) {
         setSubscriptionExpired(true);
@@ -116,7 +118,7 @@ export default function TasksPage() {
       if (response.ok) {
         fetchTasks();
         setEditingTask(null);
-        setFormData({ title: '', description: '', due_date: '', category: '' });
+        setFormData({ title: '', description: '', due_date: '', category: '', label: 'none' });
       } else if (response.status === 403) {
         setSubscriptionExpired(true);
         setShowSubscribe(true);
@@ -174,13 +176,14 @@ export default function TasksPage() {
       description: task.description || '',
       due_date: task.due_date.split('T')[0],
       category: task.category || '',
+      label: (task.label ?? 'none') as 'none' | 'yellow' | 'green' | 'blue' | 'red',
     });
     setShowAddForm(true);
   };
 
   const cancelEdit = () => {
     setEditingTask(null);
-    setFormData({ title: '', description: '', due_date: '', category: '' });
+    setFormData({ title: '', description: '', due_date: '', category: '', label: 'none' });
     setShowAddForm(false);
   };
 
@@ -200,6 +203,31 @@ export default function TasksPage() {
   const completedCount = tasks.filter((t) => t.completed).length;
   const totalCount = tasks.length;
   const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const labelClasses: Record<string, string> = {
+    none: 'bg-transparent border-gray-300 dark:border-slate-500',
+    yellow: 'bg-yellow-400 border-yellow-500',
+    green: 'bg-green-400 border-green-500',
+    blue: 'bg-blue-400 border-blue-500',
+    red: 'bg-red-400 border-red-500',
+  };
+  const labelTagClasses: Record<string, string> = {
+    yellow: 'bg-yellow-400 text-yellow-900',
+    green: 'bg-green-400 text-green-900',
+    blue: 'bg-blue-400 text-blue-900',
+    red: 'bg-red-400 text-red-900',
+  };
+  const labelOptions: Array<{
+    value: 'none' | 'yellow' | 'green' | 'blue' | 'red';
+    name: string;
+    className: string;
+    showIcon?: boolean;
+  }> = [
+    { value: 'none', name: 'No Label', className: 'bg-transparent border-dashed border-gray-400 dark:border-slate-400', showIcon: true },
+    { value: 'yellow', name: 'Yellow', className: 'bg-yellow-400' },
+    { value: 'green', name: 'Green', className: 'bg-green-400' },
+    { value: 'blue', name: 'Blue', className: 'bg-blue-400' },
+    { value: 'red', name: 'Red', className: 'bg-red-400' },
+  ];
 
   if (loading) {
     return (
@@ -342,6 +370,40 @@ export default function TasksPage() {
                   />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Label Color
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  {labelOptions.map((option) => (
+                    <button
+                      type="button"
+                      key={option.value}
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          label: option.value,
+                        })
+                      }
+                      className={`relative w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                        option.value === 'none'
+                          ? option.className
+                          : `${option.className} border-transparent`
+                      } ${
+                        formData.label === option.value
+                          ? 'ring-2 ring-offset-2 ring-emerald-500 dark:ring-offset-slate-800'
+                          : 'ring-0'
+                      }`}
+                      aria-label={option.name}
+                      title={option.name}
+                    >
+                      {option.showIcon && (
+                        <span className="text-xs text-gray-500 dark:text-gray-300">×</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -386,13 +448,13 @@ export default function TasksPage() {
                 {categoryTasks.map((task) => (
                   <div
                     key={task.id}
-                    className={`p-4 rounded-lg border ${
+                        className={`relative p-4 rounded-lg border ${
                       task.completed
                         ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                         : 'bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 hover:border-emerald-300 dark:hover:border-emerald-600'
                     } transition-all`}
                   >
-                    <div className="flex items-start gap-4">
+                        <div className="flex items-start gap-4">
                       <input
                         type="checkbox"
                         checked={task.completed}
@@ -400,13 +462,23 @@ export default function TasksPage() {
                         className="mt-1 w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500"
                       />
                       <div className="flex-1">
-                        <h4
-                          className={`font-medium ${
-                            task.completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
-                          }`}
-                        >
-                          {task.title}
-                        </h4>
+                            <div className="flex items-center gap-2">
+                              {task.label && task.label !== 'none' && (
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${labelTagClasses[task.label] || ''}`}
+                                  title={`${task.label} label`}
+                                >
+                                  <span className="h-2 w-2 rounded-full bg-white/80" />
+                                </span>
+                              )}
+                              <h4
+                                className={`font-medium ${
+                                  task.completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
+                                }`}
+                              >
+                                {task.title}
+                              </h4>
+                            </div>
                         {task.description && (
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{task.description}</p>
                         )}
