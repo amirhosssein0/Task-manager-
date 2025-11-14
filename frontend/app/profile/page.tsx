@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE } from '../lib/config';
+import { authenticatedFetch, getValidAccessToken } from '../lib/api';
 import Link from 'next/link';
 
 interface UserProfile {
@@ -56,19 +57,9 @@ export default function ProfilePage() {
     fetchBillingStatus();
   }, []);
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('access_token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    };
-  };
-
   const fetchProfile = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/profile/`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await authenticatedFetch(`${API_BASE}/api/auth/profile/`);
 
       if (response.ok) {
         const data = await response.json();
@@ -88,15 +79,33 @@ export default function ProfilePage() {
     }
   };
 
-  const fetchUserTasks = async () => {
+  const [taskPagination, setTaskPagination] = useState<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    currentPage: number;
+  } | null>(null);
+
+  const fetchUserTasks = async (page: number = 1) => {
     try {
-      const response = await fetch(`${API_BASE}/api/tasks/user-tasks/`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await authenticatedFetch(`${API_BASE}/api/tasks/user-tasks/?page=${page}`);
 
       if (response.ok) {
         const data = await response.json();
-        setTasks(data);
+        // Handle paginated response
+        if (data.results) {
+          setTasks(data.results);
+          setTaskPagination({
+            count: data.count,
+            next: data.next,
+            previous: data.previous,
+            currentPage: page,
+          });
+        } else {
+          // Fallback for non-paginated response
+          setTasks(data);
+          setTaskPagination(null);
+        }
       }
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -105,9 +114,7 @@ export default function ProfilePage() {
 
   const fetchBillingStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/billing/status/`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await authenticatedFetch(`${API_BASE}/api/billing/status/`);
 
       if (response.ok) {
         const data = await response.json();
@@ -127,9 +134,8 @@ export default function ProfilePage() {
 
   const handleUpdateProfile = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/profile/`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/auth/profile/`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
         body: JSON.stringify(formData),
       });
 
@@ -154,7 +160,12 @@ export default function ProfilePage() {
     formData.append('profile_picture', file);
 
     try {
-      const token = localStorage.getItem('access_token');
+      const token = await getValidAccessToken();
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
       const response = await fetch(`${API_BASE}/api/auth/profile/`, {
         method: 'PATCH',
         headers: {
@@ -182,9 +193,8 @@ export default function ProfilePage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/delete-account/`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/auth/delete-account/`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
 
       if (response.ok) {
@@ -511,6 +521,31 @@ export default function ProfilePage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          
+          {/* Pagination Controls */}
+          {taskPagination && taskPagination.count > 10 && (
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Showing {((taskPagination.currentPage - 1) * 10) + 1} to {Math.min(taskPagination.currentPage * 10, taskPagination.count)} of {taskPagination.count} tasks
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => fetchUserTasks(taskPagination.currentPage - 1)}
+                  disabled={!taskPagination.previous}
+                  className="px-4 py-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => fetchUserTasks(taskPagination.currentPage + 1)}
+                  disabled={!taskPagination.next}
+                  className="px-4 py-2 bg-emerald-600 dark:bg-emerald-700 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 dark:hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </div>

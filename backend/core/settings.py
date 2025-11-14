@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from datetime import timedelta
+from celery.schedules import crontab
 try:
     from dotenv import load_dotenv
 except ImportError:
@@ -50,6 +51,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_spectacular',
     'tasks',
     'accounts',
     'billing'
@@ -167,6 +169,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 _cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000')
@@ -175,12 +180,63 @@ CORS_ALLOWED_ORIGINS = [o for o in _cors_origins.split(',') if o]
 _csrf_trusted = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:3000')
 CSRF_TRUSTED_ORIGINS = [o for o in _csrf_trusted.split(',') if o]
 
+_access_token_minutes = os.getenv('ACCESS_TOKEN_MINUTES')
+if _access_token_minutes is not None:
+    access_token_lifetime = timedelta(minutes=int(_access_token_minutes))
+else:
+    # Default: 1 hour (60 minutes) - standard practice for web apps
+    # Short enough for security, long enough to avoid frequent refreshes
+    access_token_lifetime = timedelta(minutes=int(os.getenv('ACCESS_TOKEN_MINUTES_DEFAULT', '60')))
+
+# Default: 14 days (2 weeks) for refresh token - standard practice
+# Long enough for good UX, short enough for security
+refresh_token_lifetime = timedelta(days=int(os.getenv('REFRESH_TOKEN_DAYS', '14')))
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=int(os.getenv('ACCESS_TOKEN_HOURS', '12'))),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('REFRESH_TOKEN_DAYS', '7'))),
+    'ACCESS_TOKEN_LIFETIME': access_token_lifetime,
+    'REFRESH_TOKEN_LIFETIME': refresh_token_lifetime,
 }
 
 # Default permission: open unless specified, endpoints require IsAuthenticated where needed
 REST_FRAMEWORK['DEFAULT_PERMISSION_CLASSES'] = [
     'rest_framework.permissions.AllowAny'
 ]
+
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    'flag-overdue-tasks-daily': {
+        'task': 'tasks.tasks.flag_overdue_tasks',
+        'schedule': crontab(
+            hour=int(os.getenv('OVERDUE_NOTIFY_HOUR', '21')),
+            minute=int(os.getenv('OVERDUE_NOTIFY_MINUTE', '0'))
+        ),
+    },
+}
+
+# drf-spectacular settings for Swagger/OpenAPI documentation
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Task Manager API',
+    'DESCRIPTION': 'API documentation for Task Manager application',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'AUTHENTICATION_WHITELIST': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': False,
+        'filter': True,
+    },
+    'REDOC_UI_SETTINGS': {
+        'hideDownloadButton': False,
+        'hideHostname': False,
+    },
+}

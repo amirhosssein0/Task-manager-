@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.core.mail import send_mail
 from django.conf import settings
+from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
@@ -80,6 +81,13 @@ def change_password(request):
 
 	request.user.set_password(new_password)
 	request.user.save()
+	
+	# Mark all temp passwords as used since user has set new password
+	PasswordResetToken.objects.filter(
+		user=request.user,
+		used=False
+	).update(used=True)
+	
 	return Response({"detail": "Password changed successfully"})
 
 
@@ -99,17 +107,31 @@ def password_reset(request):
 	# Generate temp password
 	reset_token = PasswordResetToken.generate_temp_password(user)
 	
+	# Temporarily disable old password by setting an invalid password
+	# This ensures only temp password can be used until new password is set
+	# We'll store a flag to know we need to force password change
+	user.set_unusable_password()
+	user.save()
+	
 	# Send email
 	try:
 		send_mail(
 			subject='Password Reset - Task Manager',
-			message=f'Your temporary password is: {reset_token.temp_password}\n\nThis password will expire in 24 hours. Please login and change your password immediately.',
+			message=f'Your temporary password is: {reset_token.temp_password}\n\nThis password will expire in 24 hours. Please login with this password and you will be asked to set a new password immediately.\n\nNote: The temporary password is case-insensitive (you can enter it in any case).',
 			from_email=settings.DEFAULT_FROM_EMAIL,
 			recipient_list=[email],
 			fail_silently=False,
 		)
 	except Exception as e:
-		# Log error but don't reveal to user
+		# Log error for debugging
+		import logging
+		logger = logging.getLogger(__name__)
+		logger.error(f"Failed to send password reset email: {str(e)}")
+		print(f"❌ Failed to send email: {str(e)}")
+		# Return error details in debug mode, generic message otherwise
+		if settings.DEBUG:
+			return Response({"detail": f"Failed to send email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+		# Don't reveal error to user for security in production
 		return Response({"detail": "If an account exists for this email, a temporary password was sent."})
 	
 	return Response({"detail": "If an account exists for this email, a temporary password was sent."})
@@ -127,7 +149,7 @@ def login(request):
 			status=status.HTTP_400_BAD_REQUEST
 		)
 	
-	# Check if it's a temp password
+	# Check if it's a temp password first
 	try:
 		user = User.objects.get(username=username)
 		reset_token = PasswordResetToken.objects.filter(
@@ -148,9 +170,25 @@ def login(request):
 	except User.DoesNotExist:
 		pass
 	
-	# Regular authentication
+	# Regular authentication - only if user has a usable password
+	# If password was reset, old password won't work
 	user = authenticate(username=username, password=password)
 	if user:
+		# Check if user has an active temp password that hasn't been used
+		# If so, they must use temp password, not old password
+		active_temp = PasswordResetToken.objects.filter(
+			user=user,
+			used=False,
+			expires_at__gt=timezone.now()
+		).exists()
+		
+		if active_temp:
+			# User has an active temp password, old password is disabled
+			return Response(
+				{"detail": "Please use the temporary password sent to your email. Your old password has been disabled."},
+				status=status.HTTP_401_UNAUTHORIZED
+			)
+		
 		tokens = _tokens_for_user(user)
 		tokens['temp_password_used'] = False
 		return Response(tokens)

@@ -24,6 +24,7 @@ class Task(models.Model):
 	label = models.CharField(max_length=12, choices=LABEL_CHOICES, default=LABEL_NONE)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
+	overdue_notified = models.BooleanField(default=False)
 
 	class Meta:
 		ordering = ['-created_at']

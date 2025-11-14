@@ -19,6 +19,25 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const notifyAuthChange = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth-change'));
+    }
+  };
+
+  const usernameHasNumber = /\d/.test(formData.username);
+  const passwordChecks = {
+    length: formData.password.length >= 8,
+    uppercase: /[A-Z]/.test(formData.password),
+    number: /\d/.test(formData.password),
+    special: /[^A-Za-z0-9]/.test(formData.password),
+  };
+  const passwordRequirements = [
+    { key: 'uppercase', label: 'At least one uppercase letter', met: passwordChecks.uppercase },
+    { key: 'number', label: 'At least one number', met: passwordChecks.number },
+    { key: 'special', label: 'At least one special character', met: passwordChecks.special },
+    { key: 'length', label: 'Minimum 8 characters', met: passwordChecks.length },
+  ];
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -27,6 +46,8 @@ export default function SignupPage() {
       newErrors.username = 'Username is required';
     } else if (formData.username.length < 3) {
       newErrors.username = 'Username must be at least 3 characters';
+    } else if (!/\d/.test(formData.username)) {
+      newErrors.username = 'Username must contain at least one number';
     }
 
     if (!formData.email.trim()) {
@@ -37,8 +58,24 @@ export default function SignupPage() {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    } else {
+      const missingRequirements: string[] = [];
+      if (formData.password.length < 8) {
+        missingRequirements.push('be at least 8 characters');
+      }
+      if (!/[A-Z]/.test(formData.password)) {
+        missingRequirements.push('include an uppercase letter');
+      }
+      if (!/\d/.test(formData.password)) {
+        missingRequirements.push('include a number');
+      }
+      if (!/[^A-Za-z0-9]/.test(formData.password)) {
+        missingRequirements.push('include a special character');
+      }
+
+      if (missingRequirements.length) {
+        newErrors.password = `Password must ${missingRequirements.join(', ')}.`;
+      }
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -78,6 +115,7 @@ export default function SignupPage() {
           localStorage.setItem('access_token', data.access);
           localStorage.setItem('refresh_token', data.refresh);
         }
+        notifyAuthChange();
         router.push('/dashboard');
       } else {
         // Display server errors
@@ -217,6 +255,19 @@ export default function SignupPage() {
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600">{errors.password}</p>
               )}
+              <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+                {passwordRequirements.map((requirement) => (
+                  <li
+                    key={requirement.key}
+                    className={`text-xs flex items-center gap-2 ${requirement.met ? 'text-green-600' : 'text-red-600'}`}
+                  >
+                    <span
+                      className={`h-2 w-2 rounded-full ${requirement.met ? 'bg-green-600' : 'bg-red-600'}`}
+                    />
+                    {requirement.label}
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <div>

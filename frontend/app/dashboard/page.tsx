@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { API_BASE } from '../lib/config';
+import { authenticatedFetch, getAuthHeaders } from '../lib/api';
 import SubscriptionModal from '../components/SubscriptionModal';
 
 interface Task {
@@ -44,33 +45,17 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month'>('today');
   const [showSubscribe, setShowSubscribe] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
     fetchRecentTasks();
   }, [selectedPeriod]);
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('access_token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-    };
-  };
-
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-
-      const response = await fetch(
-        `${API_BASE}/api/dashboard/?period=${selectedPeriod}`,
-        {
-          headers: getAuthHeaders(),
-        }
+      const response = await authenticatedFetch(
+        `${API_BASE}/api/dashboard/?period=${selectedPeriod}`
       );
 
       if (response.ok) {
@@ -88,13 +73,17 @@ export default function DashboardPage() {
 
   const fetchRecentTasks = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/tasks/recent/`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await authenticatedFetch(`${API_BASE}/api/tasks/recent/`);
 
       if (response.ok) {
         const data = await response.json();
-        setRecentTasks(data);
+        // Handle paginated response
+        if (data.results) {
+          setRecentTasks(data.results);
+        } else {
+          // Fallback for non-paginated response
+          setRecentTasks(data);
+        }
       }
     } catch (error) {
       console.error('Error fetching recent tasks:', error);
@@ -104,9 +93,8 @@ export default function DashboardPage() {
   const handleDeleteOverdueTask = async (taskId: number) => {
     if (!confirm('Are you sure you want to delete this task?')) return;
     try {
-      const response = await fetch(`${API_BASE}/api/tasks/${taskId}/`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/tasks/${taskId}/`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
       if (response.ok) {
         fetchDashboardData();
@@ -117,11 +105,18 @@ export default function DashboardPage() {
     }
   };
 
-  const handleRescheduleOverdueTask = async (taskId: number) => {
+  const handleRescheduleOverdueTask = async (taskId: number, taskTitle: string) => {
+    const confirmed = confirm(
+      `You still haven't completed "${taskTitle}". Do you want to move it to tomorrow?`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
     try {
-      const response = await fetch(`${API_BASE}/api/tasks/${taskId}/reschedule/`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/tasks/${taskId}/reschedule/`, {
         method: 'POST',
-        headers: getAuthHeaders(),
       });
       if (response.ok) {
         fetchDashboardData();
@@ -129,6 +124,192 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Error rescheduling overdue task:', error);
+      alert('Failed to reschedule task. Please try again.');
+    }
+  };
+
+  const generatePDF = async () => {
+    if (!stats || generatingPDF) return;
+
+    setGeneratingPDF(true);
+    try {
+      // Dynamic import for client-side only
+      const { default: jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yPosition = 20;
+    const margin = 20;
+    const lineHeight = 7;
+    const sectionSpacing = 10;
+
+    // Helper function to add a new page if needed
+    const checkNewPage = (requiredSpace: number) => {
+      if (yPosition + requiredSpace > pageHeight - margin) {
+        doc.addPage();
+        yPosition = 20;
+        return true;
+      }
+      return false;
+    };
+
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(16, 185, 129); // emerald-500
+    doc.text('Task Manager Dashboard Report', margin, yPosition);
+    yPosition += 10;
+
+    // Period information
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    const periodText = selectedPeriod === 'today' ? 'Today' : selectedPeriod === 'week' ? 'This Week' : 'This Month';
+    doc.text(`Period: ${periodText}`, margin, yPosition);
+    yPosition += 5;
+    doc.text(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, margin, yPosition);
+    yPosition += sectionSpacing;
+
+    // Stats Section
+    checkNewPage(30);
+    doc.setFontSize(16);
+    doc.setTextColor(16, 185, 129);
+    doc.text('Statistics Overview', margin, yPosition);
+    yPosition += 8;
+
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    const statsData = [
+      ['Metric', 'Value'],
+      ['Total Tasks', stats.total_tasks.toString()],
+      ['Completed Tasks', stats.completed_tasks.toString()],
+      ['Pending Tasks', stats.pending_tasks.toString()],
+      ['Completion Rate', `${stats.completion_rate}%`],
+    ];
+
+    // Simple table for stats
+    statsData.forEach((row, index) => {
+      if (index === 0) {
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(75, 85, 99); // gray-600
+      } else {
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(0, 0, 0);
+      }
+      doc.text(row[0], margin, yPosition);
+      doc.text(row[1], pageWidth - margin - 40, yPosition, { align: 'right' });
+      yPosition += lineHeight;
+    });
+
+    yPosition += sectionSpacing;
+
+    // Tasks by Category
+    if (Object.keys(stats.tasks_by_category).length > 0) {
+      checkNewPage(40);
+      doc.setFontSize(16);
+      doc.setTextColor(16, 185, 129);
+      doc.text('Tasks by Category', margin, yPosition);
+      yPosition += 8;
+
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'bold');
+      doc.text('Category', margin, yPosition);
+      doc.text('Count', pageWidth - margin - 40, yPosition, { align: 'right' });
+      yPosition += lineHeight;
+      doc.setFont(undefined, 'normal');
+
+      Object.entries(stats.tasks_by_category).forEach(([category, count]) => {
+        checkNewPage(lineHeight);
+        doc.text(category || 'Uncategorized', margin + 5, yPosition);
+        doc.text(count.toString(), pageWidth - margin - 40, yPosition, { align: 'right' });
+        yPosition += lineHeight;
+      });
+      yPosition += sectionSpacing;
+    }
+
+    // Tasks by Date
+    if (stats.tasks_by_date.length > 0) {
+      checkNewPage(40);
+      doc.setFontSize(16);
+      doc.setTextColor(16, 185, 129);
+      doc.text('Tasks by Date', margin, yPosition);
+      yPosition += 8;
+
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'bold');
+      doc.text('Date', margin, yPosition);
+      doc.text('Completed/Total', pageWidth - margin - 40, yPosition, { align: 'right' });
+      yPosition += lineHeight;
+      doc.setFont(undefined, 'normal');
+
+      stats.tasks_by_date.slice(0, 15).forEach((item) => {
+        checkNewPage(lineHeight);
+        const dateStr = new Date(item.date).toLocaleDateString();
+        doc.text(dateStr, margin + 5, yPosition);
+        doc.text(`${item.completed}/${item.total}`, pageWidth - margin - 40, yPosition, { align: 'right' });
+        yPosition += lineHeight;
+      });
+      if (stats.tasks_by_date.length > 15) {
+        yPosition += 3;
+        doc.setFontSize(9);
+        doc.setTextColor(107, 114, 128); // gray-500
+        doc.text(`... and ${stats.tasks_by_date.length - 15} more dates`, margin + 5, yPosition);
+        yPosition += lineHeight;
+      }
+      yPosition += sectionSpacing;
+    }
+
+    // Recent Tasks
+    if (recentTasks.length > 0) {
+      checkNewPage(40);
+      doc.setFontSize(16);
+      doc.setTextColor(16, 185, 129);
+      doc.text('Recent Tasks', margin, yPosition);
+      yPosition += 8;
+
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      recentTasks.slice(0, 10).forEach((task) => {
+        checkNewPage(lineHeight * 2);
+        doc.setFont(undefined, task.completed ? 'normal' : 'bold');
+        doc.setTextColor(task.completed ? 107 : 0, task.completed ? 114 : 0, task.completed ? 128 : 0);
+        const taskTitle = task.completed ? `✓ ${task.title}` : task.title;
+        doc.text(taskTitle, margin + 5, yPosition, { maxWidth: pageWidth - margin * 2 - 50 });
+        yPosition += lineHeight;
+        doc.setFontSize(9);
+        doc.setTextColor(107, 114, 128);
+        const taskInfo = `Due: ${new Date(task.due_date).toLocaleDateString()}${task.category ? ` | Category: ${task.category}` : ''}`;
+        doc.text(taskInfo, margin + 10, yPosition);
+        yPosition += lineHeight + 2;
+        doc.setFontSize(11);
+      });
+    }
+
+    // Footer on each page
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(9);
+      doc.setTextColor(107, 114, 128);
+      doc.text(
+        `Page ${i} of ${totalPages}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: 'center' }
+      );
+    }
+
+    // Generate filename
+    const periodName = selectedPeriod === 'today' ? 'today' : selectedPeriod === 'week' ? 'week' : 'month';
+    const filename = `dashboard-report-${periodName}-${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    // Save PDF
+    doc.save(filename);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setGeneratingPDF(false);
     }
   };
 
@@ -173,7 +354,7 @@ export default function DashboardPage() {
                   Delete task
                 </button>
                 <button
-                  onClick={() => handleRescheduleOverdueTask(task.id)}
+                  onClick={() => handleRescheduleOverdueTask(task.id, task.title)}
                   className="px-3 py-1.5 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
                 >
                   Move to tomorrow
@@ -212,7 +393,31 @@ export default function DashboardPage() {
         </div>
       )}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Dashboard</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
+          <button
+            onClick={generatePDF}
+            disabled={generatingPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-700 dark:bg-emerald-600 text-white rounded-lg hover:bg-emerald-800 dark:hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingPDF ? (
+              <>
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download PDF Report
+              </>
+            )}
+          </button>
+        </div>
         
         {/* Period Selector */}
         <div className="flex gap-2 mb-6">

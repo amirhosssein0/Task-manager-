@@ -24,11 +24,14 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
 
+      const data = await response.json();
+      
       if (response.ok) {
         setSubmitted(true);
       } else {
-        const data = await response.json();
+        // Show error message (in debug mode, backend returns detailed error)
         alert(data.email?.[0] || data.detail || 'Failed to send reset email');
+        console.error('Password reset error:', data);
       }
     } catch (error) {
       console.error('Error:', error);

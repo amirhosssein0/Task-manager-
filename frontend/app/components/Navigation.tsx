@@ -7,17 +7,58 @@ import ThemeToggle from './ThemeToggle';
 
 export default function Navigation() {
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const getIsAuthenticated = () => {
+    if (typeof window === 'undefined') return false;
+    const token = localStorage.getItem('access_token');
+    if (!token) return false;
+
+    try {
+      const payload = JSON.parse(
+        atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+      );
+      if (payload?.exp && payload.exp * 1000 > Date.now()) {
+        return true;
+      }
+    } catch (error) {
+      // fall through to cleanup below
+    }
+
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    return false;
+  };
+
+  // Always start with false to avoid hydration mismatch
+  // Will be updated in useEffect after mount
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    setIsAuthenticated(!!token);
+    const syncAuthState = () => {
+      setIsAuthenticated(getIsAuthenticated());
+    };
+
+    // Initial check after mount
+    syncAuthState();
+    
+    // Listen for auth changes
+    window.addEventListener('auth-change', syncAuthState);
+    window.addEventListener('storage', syncAuthState);
+    window.addEventListener('focus', syncAuthState);
+
+    return () => {
+      window.removeEventListener('auth-change', syncAuthState);
+      window.removeEventListener('storage', syncAuthState);
+      window.removeEventListener('focus', syncAuthState);
+    };
   }, []);
 
   const handleLogout = () => {
+    if (typeof window === 'undefined') return;
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    window.dispatchEvent(new Event('auth-change'));
     setIsAuthenticated(false);
     setMobileOpen(false);
     router.push('/login');

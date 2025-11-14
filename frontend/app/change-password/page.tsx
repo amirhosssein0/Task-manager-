@@ -26,6 +26,19 @@ export default function ChangePasswordPage() {
     return false;
   });
 
+  const passwordChecks = {
+    length: formData.new_password.length >= 8,
+    uppercase: /[A-Z]/.test(formData.new_password),
+    number: /\d/.test(formData.new_password),
+    special: /[^A-Za-z0-9]/.test(formData.new_password),
+  };
+  const passwordRequirements = [
+    { key: 'uppercase', label: 'At least one uppercase letter', met: passwordChecks.uppercase },
+    { key: 'number', label: 'At least one number', met: passwordChecks.number },
+    { key: 'special', label: 'At least one special character', met: passwordChecks.special },
+    { key: 'length', label: 'Minimum 8 characters', met: passwordChecks.length },
+  ];
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -36,8 +49,24 @@ export default function ChangePasswordPage() {
 
     if (!formData.new_password) {
       newErrors.new_password = 'New password is required';
-    } else if (formData.new_password.length < 8) {
-      newErrors.new_password = 'Password must be at least 8 characters';
+    } else {
+      const missingRequirements: string[] = [];
+      if (formData.new_password.length < 8) {
+        missingRequirements.push('be at least 8 characters');
+      }
+      if (!/[A-Z]/.test(formData.new_password)) {
+        missingRequirements.push('include an uppercase letter');
+      }
+      if (!/\d/.test(formData.new_password)) {
+        missingRequirements.push('include a number');
+      }
+      if (!/[^A-Za-z0-9]/.test(formData.new_password)) {
+        missingRequirements.push('include a special character');
+      }
+
+      if (missingRequirements.length) {
+        newErrors.new_password = `Password must ${missingRequirements.join(', ')}.`;
+      }
     }
 
     if (formData.new_password !== formData.confirm_password) {
@@ -73,10 +102,17 @@ export default function ChangePasswordPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Clear temp password flag
+        // Clear temp password flag and tokens
         localStorage.removeItem('temp_password_used');
-        alert('Password changed successfully!');
-        router.push('/profile');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        // Notify auth change
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth-change'));
+        }
+        alert('Password changed successfully! Please login with your new password.');
+        // Always redirect to login after password change (especially for temp password)
+        router.push('/login');
       } else {
         if (data.old_password) {
           setErrors({ old_password: data.old_password[0] });
@@ -131,7 +167,7 @@ export default function ChangePasswordPage() {
               <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="text-sm font-medium">لطفا رمز عبور خود را تغییر دهید</p>
+              <p className="text-sm font-medium">Please set a new password for your account. After changing your password, you'll be redirected to login.</p>
             </div>
           )}
           {errors.general && (
@@ -198,7 +234,7 @@ export default function ChangePasswordPage() {
                   className={`mt-1 appearance-none relative block w-full px-3 py-2 pr-10 border ${
                     errors.new_password ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-slate-600'
                   } bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm`}
-                  placeholder="At least 8 characters"
+                  placeholder="Enter new password"
                 />
                 <button
                   type="button"
@@ -218,6 +254,25 @@ export default function ChangePasswordPage() {
                   )}
                 </button>
               </div>
+              {formData.new_password && (
+                <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+                  {passwordRequirements.map((requirement) => (
+                    <li
+                      key={requirement.key}
+                      className={`text-xs flex items-center gap-2 ${
+                        requirement.met ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}
+                    >
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          requirement.met ? 'bg-green-600 dark:bg-green-400' : 'bg-red-600 dark:bg-red-400'
+                        }`}
+                      />
+                      {requirement.label}
+                    </li>
+                  ))}
+                </ul>
+              )}
               {errors.new_password && (
                 <p className="mt-1 text-sm text-red-600">{errors.new_password}</p>
               )}

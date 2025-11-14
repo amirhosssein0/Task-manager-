@@ -16,6 +16,11 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const notifyAuthChange = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth-change'));
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -60,6 +65,7 @@ export default function LoginPage() {
           localStorage.setItem('access_token', data.access);
           localStorage.setItem('refresh_token', data.refresh);
         }
+        notifyAuthChange();
         // If temp password was used, set flag and redirect to change password
         if (data.temp_password_used) {
           localStorage.setItem('temp_password_used', 'true');

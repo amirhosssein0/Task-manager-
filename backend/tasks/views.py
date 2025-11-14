@@ -39,13 +39,25 @@ class TaskViewSet(viewsets.ModelViewSet):
 
 	@action(detail=False, methods=["get"], url_path="recent")
 	def recent(self, request):
-		recent_qs = Task.objects.filter(user=request.user).order_by("-created_at")[:10]
-		return Response(TaskSerializer(recent_qs, many=True).data)
+		from rest_framework.pagination import PageNumberPagination
+		paginator = PageNumberPagination()
+		paginator.page_size = 10
+		recent_qs = Task.objects.filter(user=request.user).order_by("-created_at")
+		page = paginator.paginate_queryset(recent_qs, request)
+		if page is not None:
+			return paginator.get_paginated_response(TaskSerializer(page, many=True).data)
+		return Response(TaskSerializer(recent_qs[:10], many=True).data)
 
 	@action(detail=False, methods=["get"], url_path="user-tasks")
 	def user_tasks(self, request):
-		all_qs = Task.objects.filter(user=request.user).order_by("-created_at")[:100]
-		return Response(TaskSerializer(all_qs, many=True).data)
+		from rest_framework.pagination import PageNumberPagination
+		paginator = PageNumberPagination()
+		paginator.page_size = 10
+		all_qs = Task.objects.filter(user=request.user).order_by("-created_at")
+		page = paginator.paginate_queryset(all_qs, request)
+		if page is not None:
+			return paginator.get_paginated_response(TaskSerializer(page, many=True).data)
+		return Response(TaskSerializer(all_qs[:10], many=True).data)
 
 	@action(detail=True, methods=["post"], url_path="reschedule")
 	def reschedule(self, request, pk=None):
@@ -53,7 +65,8 @@ class TaskViewSet(viewsets.ModelViewSet):
 		if task.user != request.user:
 			raise PermissionDenied("You do not have permission to modify this task.")
 		task.due_date = timezone.localdate() + timedelta(days=1)
-		task.save(update_fields=["due_date", "updated_at"])
+		task.overdue_notified = False
+		task.save(update_fields=["due_date", "overdue_notified", "updated_at"])
 		return Response(TaskSerializer(task).data)
 
 
@@ -110,13 +123,7 @@ def dashboard(request):
 			daily[key]["completed"] += 1
 	tasks_by_date = list(daily.values())
 
-	now = timezone.localtime()
-	today_date = now.date()
-	base_overdue = Task.objects.filter(user=user, completed=False)
-	overdue_qs = base_overdue.filter(due_date__lt=today_date)
-	if now.time() >= time(21, 0):
-		overdue_qs = overdue_qs | base_overdue.filter(due_date=today_date)
-	overdue_qs = overdue_qs.distinct()
+	overdue_qs = Task.objects.filter(user=user, completed=False, overdue_notified=True)
 	overdue_tasks = [
 		{"id": task.id, "title": task.title, "due_date": task.due_date.isoformat()}
 		for task in overdue_qs
