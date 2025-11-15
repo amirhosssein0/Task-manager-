@@ -672,6 +672,7 @@ export default function TasksPage() {
                             value={formData.recurrence_interval}
                             onChange={(e) => setFormData({ ...formData, recurrence_interval: parseInt(e.target.value) || 1 })}
                             className="w-20 px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                            placeholder="1"
                           />
                           <select
                             value={formData.recurrence_type}
@@ -679,11 +680,17 @@ export default function TasksPage() {
                             className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500"
                           >
                             <option value="daily">Day(s)</option>
+                            <option value="custom">Custom Days</option>
                             <option value="weekly">Week(s)</option>
                             <option value="monthly">Month(s)</option>
                             <option value="yearly">Year(s)</option>
                           </select>
                         </div>
+                        {(formData.recurrence_type === 'daily' || formData.recurrence_type === 'custom') && (
+                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Task will repeat every {formData.recurrence_interval} day{formData.recurrence_interval !== 1 ? 's' : ''}
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -695,6 +702,9 @@ export default function TasksPage() {
                           onChange={(e) => setFormData({ ...formData, recurrence_end_date: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500"
                         />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          Leave empty for unlimited recurrence
+                        </p>
                       </div>
                     </div>
                     {formData.recurrence_type === 'weekly' && (

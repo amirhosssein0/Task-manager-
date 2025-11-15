@@ -136,7 +136,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Timezone configuration - can be overridden via environment variable
+# Common timezones: 'UTC', 'Asia/Tehran', 'America/New_York', 'Europe/London'
+TIME_ZONE = os.getenv('DJANGO_TIME_ZONE', 'UTC')
 
 USE_I18N = True
 

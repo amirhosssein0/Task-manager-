@@ -150,6 +150,11 @@ class Task(models.Model):
 				last_day = monthrange(year, month)[1]
 				return base_date.replace(year=year, month=month, day=min(day, last_day))
 		
+		elif self.recurrence_type == 'custom':
+			# Custom recurrence: every N days (where N is recurrence_interval)
+			# This allows for flexible intervals like "every 2 days", "every 5 days", etc.
+			return base_date + timedelta(days=self.recurrence_interval)
+		
 		return None
 
 

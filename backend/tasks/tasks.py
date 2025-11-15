@@ -63,48 +63,71 @@ def create_recurring_tasks():
 	)
 	
 	for parent_task in recurring_tasks:
-		# Check if we should create a new instance
-		should_create = False
-		next_date = None
-		
-		# Check end conditions
+		# Check end conditions first
 		if parent_task.recurrence_end_date and today > parent_task.recurrence_end_date:
 			continue  # Recurrence has ended
 		
 		if parent_task.recurrence_count and parent_task.recurrence_created_count >= parent_task.recurrence_count:
 			continue  # Reached max count
 		
-		# Determine next date
+		# Determine next date to create
+		next_date = None
 		if parent_task.next_recurrence_date:
 			next_date = parent_task.next_recurrence_date
-			if next_date <= today:
-				should_create = True
 		else:
-			# Calculate from due_date
+			# Calculate from due_date (first time or if next_recurrence_date was cleared)
 			next_date = parent_task.calculate_next_recurrence()
-			if next_date and next_date <= today:
-				should_create = True
 		
-		if should_create and next_date:
-			# Create new task instance
-			new_task = Task.objects.create(
-				user=parent_task.user,
-				title=parent_task.title,
-				description=parent_task.description,
-				category=parent_task.category,
-				label=parent_task.label,
-				due_date=next_date,
-				completed=False,
-				is_recurring=False,  # Instances are not recurring
+		# Create instances for all dates up to today
+		# This handles cases where the task hasn't been processed for several days
+		while next_date and next_date <= today:
+			# Check end conditions again (might have changed during loop)
+			if parent_task.recurrence_end_date and next_date > parent_task.recurrence_end_date:
+				break
+			
+			if parent_task.recurrence_count and parent_task.recurrence_created_count >= parent_task.recurrence_count:
+				break
+			
+			# Check if instance already exists for this date
+			existing = Task.objects.filter(
 				parent_task=parent_task,
-			)
+				due_date=next_date
+			).exists()
 			
-			# Update parent task
-			parent_task.recurrence_created_count += 1
-			parent_task.next_recurrence_date = parent_task.calculate_next_recurrence()
-			parent_task.save(update_fields=['recurrence_created_count', 'next_recurrence_date'])
+			if not existing:
+				# Create new task instance
+				new_task = Task.objects.create(
+					user=parent_task.user,
+					title=parent_task.title,
+					description=parent_task.description,
+					category=parent_task.category,
+					label=parent_task.label,
+					due_date=next_date,
+					completed=False,
+					is_recurring=False,  # Instances are not recurring
+					parent_task=parent_task,
+				)
+				
+				# Update parent task
+				parent_task.recurrence_created_count += 1
+				created_count += 1
 			
-			created_count += 1
+			# Calculate next recurrence date for next iteration
+			# Temporarily set next_recurrence_date to current date for calculation
+			original_next_date = parent_task.next_recurrence_date
+			parent_task.next_recurrence_date = next_date
+			next_date = parent_task.calculate_next_recurrence()
+			
+			# Update next_recurrence_date for next iteration
+			if next_date:
+				parent_task.next_recurrence_date = next_date
+			else:
+				# Restore original if calculation failed
+				parent_task.next_recurrence_date = original_next_date
+				break
+		
+		# Final save with all updates
+		parent_task.save(update_fields=['recurrence_created_count', 'next_recurrence_date'])
 	
 	result = {
 		'created_count': created_count,
@@ -112,5 +135,7 @@ def create_recurring_tasks():
 	}
 	if created_count > 0:
 		print(f"✅ Created {created_count} recurring task instances")
+	else:
+		print(f"ℹ️  No recurring tasks to create today ({today.isoformat()})")
 	return result
 
