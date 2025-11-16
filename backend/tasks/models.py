@@ -64,6 +64,13 @@ class Task(models.Model):
 
 	class Meta:
 		ordering = ['-created_at']
+		indexes = [
+			models.Index(fields=['user', 'due_date']),
+			models.Index(fields=['user', 'completed', 'overdue_notified']),
+			models.Index(fields=['user', 'is_recurring', 'parent_task']),
+			models.Index(fields=['parent_task', 'due_date']),
+			models.Index(fields=['user', 'created_at']),
+		]
 
 	def __str__(self) -> str:
 		return f"{self.title} ({'done' if self.completed else 'todo'})"

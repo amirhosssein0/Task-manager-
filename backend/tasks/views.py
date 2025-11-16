@@ -1,5 +1,5 @@
 from datetime import date, timedelta, time
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import api_view, action, permission_classes
@@ -88,7 +88,8 @@ class TaskViewSet(viewsets.ModelViewSet):
 		base_date = request.data.get("base_date", timezone.localdate().isoformat())
 		
 		try:
-			template = TaskTemplate.objects.get(id=template_id, user=request.user)
+			# Optimize: Use prefetch_related to avoid N+1 queries
+			template = TaskTemplate.objects.prefetch_related('items').get(id=template_id, user=request.user)
 		except TaskTemplate.DoesNotExist:
 			return Response(
 				{"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND
@@ -97,17 +98,24 @@ class TaskViewSet(viewsets.ModelViewSet):
 		base_date_obj = date.fromisoformat(base_date) if isinstance(base_date, str) else base_date
 		created_tasks = []
 		
+		# Optimize: Use bulk_create for better performance with many items
+		tasks_to_create = []
 		for item in template.items.all():
 			due_date = base_date_obj + timedelta(days=item.due_date_offset)
-			task = Task.objects.create(
-				user=request.user,
-				title=item.title,
-				description=item.description,
-				category=item.category or template.category,
-				label=item.label,
-				due_date=due_date,
+			tasks_to_create.append(
+				Task(
+					user=request.user,
+					title=item.title,
+					description=item.description,
+					category=item.category or template.category,
+					label=item.label,
+					due_date=due_date,
+				)
 			)
-			created_tasks.append(TaskSerializer(task).data)
+		
+		# Bulk create all tasks at once
+		created_task_objects = Task.objects.bulk_create(tasks_to_create)
+		created_tasks = [TaskSerializer(task).data for task in created_task_objects]
 		
 		return Response({
 			"message": f"Created {len(created_tasks)} tasks from template",
@@ -149,26 +157,32 @@ def dashboard(request):
 
 	tasks_qs = Task.objects.filter(user=user, created_at__date__gte=start, created_at__date__lte=today)
 
-	total = tasks_qs.count()
-	completed = tasks_qs.filter(completed=True).count()
+	# Optimize: Use single aggregation query instead of multiple queries
+	stats = tasks_qs.aggregate(
+		total=Count("id"),
+		completed=Count("id", filter=Q(completed=True))
+	)
+	total = stats['total']
+	completed = stats['completed']
 	pending = total - completed
 	completion_rate = int((completed / total) * 100) if total > 0 else 0
 
+	# Optimize: Use aggregation for category counts
 	by_category = tasks_qs.values("category").annotate(count=Count("id"))
 	tasks_by_category = {item["category"] or "Uncategorized": item["count"] for item in by_category}
 
-	# Aggregate by date
-	daily = {}
-	for t in tasks_qs:
-		key = t.due_date.isoformat()
-		if key not in daily:
-			daily[key] = {"date": key, "total": 0, "completed": 0}
-		daily[key]["total"] += 1
-		if t.completed:
-			daily[key]["completed"] += 1
-	tasks_by_date = list(daily.values())
+	# Optimize: Use aggregation instead of loop (prevents N+1 queries)
+	by_date = tasks_qs.values("due_date").annotate(
+		total=Count("id"),
+		completed=Count("id", filter=Q(completed=True))
+	)
+	tasks_by_date = [
+		{"date": item["due_date"].isoformat(), "total": item["total"], "completed": item["completed"]}
+		for item in by_date
+	]
 
-	overdue_qs = Task.objects.filter(user=user, completed=False, overdue_notified=True)
+	# Optimize: Use only() to fetch only needed fields
+	overdue_qs = Task.objects.filter(user=user, completed=False, overdue_notified=True).only("id", "title", "due_date")
 	overdue_tasks = [
 		{"id": task.id, "title": task.title, "due_date": task.due_date.isoformat()}
 		for task in overdue_qs
@@ -199,7 +213,8 @@ class TaskTemplateViewSet(viewsets.ModelViewSet):
 		sub = _get_or_create_trial(self.request.user)
 		if not sub.is_active():
 			raise PermissionDenied("Subscription required.")
-		return TaskTemplate.objects.filter(user=self.request.user)
+		# Optimize: Use prefetch_related to avoid N+1 queries when accessing items
+		return TaskTemplate.objects.filter(user=self.request.user).prefetch_related('items')
 	
 	def get_serializer_class(self):
 		if self.action in ['create', 'update', 'partial_update']:

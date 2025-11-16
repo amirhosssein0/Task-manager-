@@ -30,10 +30,10 @@ if load_dotenv:
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-7exf4-py_o#^w0omrk)(%ct&f#t+se(b%txl+=^yj7lh0@9ho_')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DJANGO_DEBUG')
+DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
 _allowed_hosts = os.getenv('DJANGO_ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = [h for h in _allowed_hosts.split(',') if h] if _allowed_hosts else []
@@ -92,16 +92,24 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
+if os.getenv('DB_ENGINE', '').lower() in {'postgres', 'postgresql', 'django.db.backends.postgresql'}:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'task_manager'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -147,12 +155,12 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Email settings (SMTP)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT'))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS')
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -168,10 +176,10 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-_cors_origins = os.getenv('CORS_ALLOWED_ORIGINS')
+_cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000')
 CORS_ALLOWED_ORIGINS = [o for o in _cors_origins.split(',') if o]
 
-_csrf_trusted = os.getenv('CSRF_TRUSTED_ORIGINS')
+_csrf_trusted = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:3000')
 CSRF_TRUSTED_ORIGINS = [o for o in _csrf_trusted.split(',') if o]
 
 _access_token_minutes = os.getenv('ACCESS_TOKEN_MINUTES')
@@ -180,11 +188,11 @@ if _access_token_minutes is not None:
 else:
     # Default: 1 hour (60 minutes) - standard practice for web apps
     # Short enough for security, long enough to avoid frequent refreshes
-    access_token_lifetime = timedelta(minutes=int(os.getenv('ACCESS_TOKEN_MINUTES_DEFAULT')))
+    access_token_lifetime = timedelta(minutes=int(os.getenv('ACCESS_TOKEN_MINUTES_DEFAULT', '60')))
 
 # Default: 14 days (2 weeks) for refresh token - standard practice
 # Long enough for good UX, short enough for security
-refresh_token_lifetime = timedelta(days=int(os.getenv('REFRESH_TOKEN_DAYS')))
+refresh_token_lifetime = timedelta(days=int(os.getenv('REFRESH_TOKEN_DAYS', '14')))
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': access_token_lifetime,
@@ -196,8 +204,8 @@ REST_FRAMEWORK['DEFAULT_PERMISSION_CLASSES'] = [
     'rest_framework.permissions.AllowAny'
 ]
 
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND')
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -206,15 +214,15 @@ CELERY_BEAT_SCHEDULE = {
     'flag-overdue-tasks-daily': {
         'task': 'tasks.tasks.flag_overdue_tasks',
         'schedule': crontab(
-            hour=int(os.getenv('OVERDUE_NOTIFY_HOUR')),
-            minute=int(os.getenv('OVERDUE_NOTIFY_MINUTE'))
+            hour=int(os.getenv('OVERDUE_NOTIFY_HOUR', '21')),
+            minute=int(os.getenv('OVERDUE_NOTIFY_MINUTE', '0'))
         ),
     },
     'create-recurring-tasks-daily': {
         'task': 'tasks.tasks.create_recurring_tasks',
         'schedule': crontab(
-            hour=int(os.getenv('RECURRING_TASKS_HOUR')),
-            minute=int(os.getenv('RECURRING_TASKS_MINUTE'))
+            hour=int(os.getenv('RECURRING_TASKS_HOUR', '0')),
+            minute=int(os.getenv('RECURRING_TASKS_MINUTE', '0'))
         ),
     },
 }
