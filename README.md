@@ -1,4 +1,4 @@
-# Task-manager-
+# Task-manager
 A task manager app with DRF and Next.js and DevOps ;)
 
 ## Setup Instructions
