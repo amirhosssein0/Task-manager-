@@ -24,6 +24,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from core.views import contact_message
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -31,6 +32,7 @@ urlpatterns = [
     path('api/tasks/', include('tasks.urls')),
     path('api/dashboard/', dashboard, name='dashboard'),
     path('api/billing/', include('billing.urls')),
+    path('api/contact/', contact_message, name='contact-message'),
     # API Documentation (Swagger)
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
