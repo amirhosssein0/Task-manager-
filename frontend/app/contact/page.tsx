@@ -2,6 +2,11 @@
 
 import { useState } from 'react';
 
+type Notification = {
+  type: 'success' | 'error' | 'info';
+  message: string;
+};
+
 export default function ContactPage() {
   const [formData, setFormData] = useState({
     name: '',
@@ -11,11 +16,16 @@ export default function ContactPage() {
   });
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8089';
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [notification, setNotification] = useState<Notification | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.preventDefault();
     setLoading(true);
+    setNotification({
+      type: 'info',
+      message: 'Sending your message...',
+    });
 
     try {
       const response = await fetch(`${API_BASE}/api/contact/`, {
@@ -27,14 +37,24 @@ export default function ContactPage() {
       });
 
       if (response.ok) {
-        setSubmitted(true);
+        setNotification({
+          type: 'success',
+          message: 'Message sent! We will get back to you shortly.',
+        });
         setFormData({ name: '', email: '', subject: '', message: '' });
       } else {
-        alert('Failed to send message. Please try again.');
+        const errorText = await response.text();
+        setNotification({
+          type: 'error',
+          message: errorText || 'Failed to send message. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Connection error. Please try again.');
+      setNotification({
+        type: 'error',
+        message: 'Connection error. Please try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -45,26 +65,6 @@ export default function ContactPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  if (submitted) {
-    return (
-      <div className="max-w-2xl mx-auto py-12 px-4">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
-          <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-green-800 mb-2">Message Sent!</h2>
-          <p className="text-green-700">
-            Thank you for contacting us. We'll get back to you soon.
-          </p>
-          <button
-            onClick={() => setSubmitted(false)}
-            className="mt-6 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            Send Another Message
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-2xl mx-auto py-12 px-4">
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-8">
@@ -72,6 +72,22 @@ export default function ContactPage() {
         <p className="text-gray-600 dark:text-gray-400 mb-8">
           Have a question or feedback? We'd love to hear from you!
         </p>
+
+        {notification && (
+          <div
+            role="status"
+            aria-live="polite"
+            className={`mb-6 rounded-lg border px-4 py-3 text-sm font-medium ${
+              notification.type === 'success'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : notification.type === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-800'
+                  : 'bg-blue-50 border-blue-200 text-blue-800'
+            }`}
+          >
+            {notification.message}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
