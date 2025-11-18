@@ -41,7 +41,7 @@ test.describe.serial('Sign Up and Login @104', () => {
   test('Login', async ({ page }) => {
     await page.goto('http://localhost:3000'); 
     await page.getByRole('link', { name: 'Login' }).click();
-    await page.getByRole('textbox', { name: 'Username' }).fill(email);   // <-- اکنون قابل دسترس است
+    await page.getByRole('textbox', { name: 'Username' }).fill(email); 
     await page.getByRole('textbox', { name: 'Password' }).fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign In' }).click();
     await page.waitForTimeout(5000);
