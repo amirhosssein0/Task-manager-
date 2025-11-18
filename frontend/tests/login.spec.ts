@@ -20,11 +20,11 @@ async function getFakeEmail(page: Page): Promise<string> {
 
 test.describe.serial('Sign Up and Login @104', () => {
 
-  let email: string;   // <-- ⭐ اینجا تعریف کن
+  let email: string; 
 
   test('Signup', async ({ page, context }) => {
       const mailPage = page;
-      email = await getFakeEmail(mailPage);   // <-- ⭐ اینجا مقدار بده
+      email = await getFakeEmail(mailPage); 
 
       const task = await context.newPage();
       await task.goto('http://localhost:3000');
