@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SubscriptionModal from '../components/SubscriptionModal';
@@ -44,6 +44,7 @@ export default function TasksPage() {
   };
   
   const [selectedDate, setSelectedDate] = useState(getInitialDate());
+  const [showAllTasks, setShowAllTasks] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [formData, setFormData] = useState({
@@ -83,28 +84,19 @@ export default function TasksPage() {
     }
   }, []);
 
-  useEffect(() => {
-    // Update URL when date changes (but don't reload if it's from URL)
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const currentDate = params.get('date');
-      if (currentDate !== selectedDate) {
-        params.set('date', selectedDate);
-        window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
-      }
-    }
-    // Only fetch if selectedDate is set
-    if (selectedDate) {
-      fetchTasks(1); // Reset to page 1 when date changes
-    }
-  }, [selectedDate]);
-
-  const fetchTasks = async (page: number = 1, dateOverride?: string) => {
+  const fetchTasks = useCallback(async (page: number = 1, dateOverride?: string) => {
     try {
-      const dateToUse = dateOverride || selectedDate;
-      const response = await authenticatedFetch(
-        `${API_BASE}/api/tasks/?due_date=${dateToUse}&page=${page}`
-      );
+      let url = `${API_BASE}/api/tasks/?page=${page}`;
+      
+      // Only add due_date filter if we're not showing all tasks
+      if (!showAllTasks) {
+        const dateToUse = dateOverride || selectedDate;
+        if (dateToUse) {
+          url += `&due_date=${dateToUse}`;
+        }
+      }
+      
+      const response = await authenticatedFetch(url);
 
       if (response.ok) {
         const data = await response.json();
@@ -135,7 +127,26 @@ export default function TasksPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate, showAllTasks, router]);
+
+  useEffect(() => {
+    // Update URL when date changes (but don't reload if it's from URL)
+    if (typeof window !== 'undefined' && !showAllTasks) {
+      const params = new URLSearchParams(window.location.search);
+      const currentDate = params.get('date');
+      if (currentDate !== selectedDate) {
+        params.set('date', selectedDate);
+        window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+      }
+    } else if (showAllTasks) {
+      // Remove date from URL when showing all tasks
+      const params = new URLSearchParams(window.location.search);
+      params.delete('date');
+      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+    }
+    // Fetch tasks when date or showAllTasks changes
+    fetchTasks(1); // Reset to page 1 when date changes
+  }, [selectedDate, showAllTasks, fetchTasks]);
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -521,20 +532,39 @@ export default function TasksPage() {
         
         {/* Date Selector */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Select Date
-          </label>
+          <div className="flex items-center gap-4 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Filter by Date
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showAllTasks}
+                onChange={(e) => setShowAllTasks(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Show All Tasks</span>
+            </label>
+          </div>
           <input
             type="date"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            onChange={(e) => {
+              setSelectedDate(e.target.value);
+              setShowAllTasks(false);
+            }}
+            disabled={showAllTasks}
+            className={`px-4 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+              showAllTasks ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           />
         </div>
 
         {/* Daily Performance Overview */}
         <div className="bg-emerald-700 dark:bg-emerald-800 rounded-lg p-6 text-white mb-6">
-          <h2 className="text-xl font-semibold mb-4">Daily Performance</h2>
+          <h2 className="text-xl font-semibold mb-4">
+            {showAllTasks ? 'Overall Performance' : 'Daily Performance'}
+          </h2>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <p className="text-sm opacity-90">Total Tasks</p>
@@ -916,7 +946,9 @@ export default function TasksPage() {
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-8 text-center">
           <p className="text-gray-500 dark:text-gray-400">
             {tasks.length === 0
-              ? 'No tasks for this date. Add one to get started!'
+              ? showAllTasks 
+                ? 'No tasks found. Add one to get started!'
+                : 'No tasks for this date. Add one to get started!'
               : 'No tasks match your search or filters. Try adjusting your filters.'}
           </p>
         </div>
