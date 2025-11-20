@@ -20,7 +20,7 @@ async function getFakeEmail(page: Page): Promise<string> {
   return email;
 }
 
-test.describe.serial('Sign Up and Login @106', () => {
+test.describe.serial('Sign Up and Change Password @106', () => {
 
   let email: string; 
 
