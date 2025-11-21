@@ -19,7 +19,7 @@ async function getFakeEmail(page: Page): Promise<string> {
   return email;
 }
 
-test.describe.serial('Sign Up and Create Template @109', () => {
+test.describe.serial('Sign Up and Create Template and Tasks @109', () => {
   let email: string;
 
   test('Signup', async ({ page, context }) => {
@@ -78,13 +78,19 @@ test.describe.serial('Sign Up and Create Template @109', () => {
 
     await maskCard.getByRole('button', { name: 'Edit' }).click();
     await page.locator('textarea').fill('Add Task Description');
+    await page.getByRole('checkbox', { name: 'Make this a recurring task' }).check();
+    await page.getByRole('checkbox', { name: 'Make this a recurring task' }).check();
+    await page.getByRole('textbox').nth(5).fill('2027-01-01');
     await page.getByRole('button', { name: 'Update Task' }).click();
-
-    page.once('dialog', dialog => {
-      dialog.accept().catch(() => {});
-    });
-    await maskCard.getByRole('button', { name: 'Delete' }).click();
-
+    await page.getByRole('button', { name: 'FACE' }).click();
+    await page.getByRole('button', { name: 'Clear All Filters' }).click();
+    await page.getByText('Green').click();
+    await page.getByRole('button', { name: 'Clear All Filters' }).click();
+    await page.getByRole('checkbox').nth(2).click();
+    await page.getByRole('link', { name: 'Dashboard' }).click();
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download PDF Report' }).click();
+    const download = await downloadPromise;
     await page.waitForTimeout(3000);
 
     await page.getByRole('navigation').getByRole('button', { name: 'Logout' }).click();
