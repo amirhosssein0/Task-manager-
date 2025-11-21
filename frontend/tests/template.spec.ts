@@ -37,12 +37,10 @@ test.describe.serial('Sign Up and Create Template @109', () => {
 
     await app.waitForTimeout(3000);
 
-    // Logout از نوار بالا
     await app.getByRole('navigation').getByRole('button', { name: 'Logout' }).click();
   });
 
   test('Create Template', async ({ page }) => {
-    // --- Login ---
     await page.goto('http://localhost:3000');
     await page.getByRole('link', { name: 'Login' }).click();
     await page.getByRole('textbox', { name: 'Username' }).fill(email);
@@ -50,7 +48,6 @@ test.describe.serial('Sign Up and Create Template @109', () => {
     await page.getByRole('button', { name: 'Sign In' }).click();
     await page.waitForTimeout(3000);
 
-    // --- Templates و ساخت Template ---
     await page.goto('http://localhost:3000/dashboard');
     await page.getByRole('link', { name: 'Templates' }).click();
     await page.getByRole('button', { name: '+ Create New Template' }).click();
@@ -66,7 +63,6 @@ test.describe.serial('Sign Up and Create Template @109', () => {
     await page.getByRole('button', { name: 'Green' }).click();
     await page.getByRole('button', { name: 'Create Template' }).click();
 
-    // --- Use Template برای ساخت Task ---
     await page.getByRole('link', { name: 'Tasks', exact: true }).click();
     await page.getByRole('link', { name: '📋 Use Template' }).click();
 
@@ -75,19 +71,15 @@ test.describe.serial('Sign Up and Create Template @109', () => {
     });
     await page.getByRole('button', { name: 'Use Template' }).click();
 
-    // نمایش همه‌ی تسک‌ها
     await page.getByRole('checkbox', { name: 'Show All Tasks' }).check();
 
-    // --- پیدا کردن کارت Mask ---
     const maskCard = page.locator('.relative:has-text("Mask")').first();
     await expect(maskCard).toBeVisible();
 
-    // --- ادیت Task داخل همان کارت ---
     await maskCard.getByRole('button', { name: 'Edit' }).click();
     await page.locator('textarea').fill('Add Task Description');
     await page.getByRole('button', { name: 'Update Task' }).click();
 
-    // --- حذف Task (دیالوگ) ---
     page.once('dialog', dialog => {
       dialog.accept().catch(() => {});
     });
@@ -95,7 +87,6 @@ test.describe.serial('Sign Up and Create Template @109', () => {
 
     await page.waitForTimeout(3000);
 
-// Logout از نوار بالا
     await page.getByRole('navigation').getByRole('button', { name: 'Logout' }).click();
   });
 });
