@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Profile, PasswordResetToken
 from .serializers import SignupSerializer, ProfileSerializer, ChangePasswordSerializer
+import sys
 
 
 def _tokens_for_user(user: User):
@@ -127,7 +128,9 @@ def password_reset(request):
 		import logging
 		logger = logging.getLogger(__name__)
 		logger.error(f"Failed to send password reset email: {str(e)}")
-		print(f"❌ Failed to send email: {str(e)}")
+		# Only print in non-testing environments
+		if 'test' not in sys.argv and 'pytest' not in sys.argv[0]:
+			print(f"❌ Failed to send email: {str(e)}")
 		# Return error details in debug mode, generic message otherwise
 		if settings.DEBUG:
 			return Response({"detail": f"Failed to send email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
