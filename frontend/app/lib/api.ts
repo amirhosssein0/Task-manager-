@@ -17,7 +17,7 @@ export function isTokenExpiredOrExpiringSoon(token: string | null): boolean {
       const expiresIn = payload.exp * 1000 - Date.now();
       return expiresIn < 300000; // 5 minutes
     }
-  } catch (error) {
+  } catch {
     return true;
   }
   return true;

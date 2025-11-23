@@ -25,7 +25,6 @@ export default function SignupPage() {
     }
   };
 
-  const usernameHasNumber = /\d/.test(formData.username);
   const passwordChecks = {
     length: formData.password.length >= 8,
     uppercase: /[A-Z]/.test(formData.password),
@@ -129,7 +128,7 @@ export default function SignupPage() {
           setErrors({ general: data.message || 'Signup failed' });
         }
       }
-    } catch (error) {
+    } catch {
       setErrors({ general: 'Connection error. Please try again.' });
     } finally {
       setLoading(false);

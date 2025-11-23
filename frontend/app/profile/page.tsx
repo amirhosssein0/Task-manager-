@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE } from '../lib/config';
 import { authenticatedFetch, getValidAccessToken } from '../lib/api';
@@ -51,13 +51,7 @@ export default function ProfilePage() {
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
 
-  useEffect(() => {
-    fetchProfile();
-    fetchUserTasks();
-    fetchBillingStatus();
-  }, []);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const response = await authenticatedFetch(`${API_BASE}/api/auth/profile/`);
 
@@ -77,7 +71,7 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
   const [taskPagination, setTaskPagination] = useState<{
     count: number;
@@ -86,7 +80,7 @@ export default function ProfilePage() {
     currentPage: number;
   } | null>(null);
 
-  const fetchUserTasks = async (page: number = 1) => {
+  const fetchUserTasks = useCallback(async (page: number = 1) => {
     try {
       const response = await authenticatedFetch(`${API_BASE}/api/tasks/user-tasks/?page=${page}`);
 
@@ -110,9 +104,9 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Error fetching tasks:', error);
     }
-  };
+  }, []);
 
-  const fetchBillingStatus = async () => {
+  const fetchBillingStatus = useCallback(async () => {
     try {
       const response = await authenticatedFetch(`${API_BASE}/api/billing/status/`);
 
@@ -130,7 +124,13 @@ export default function ProfilePage() {
     } finally {
       setBillingLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    fetchProfile();
+    fetchUserTasks();
+    fetchBillingStatus();
+  }, [fetchProfile, fetchUserTasks, fetchBillingStatus]);
 
   const handleUpdateProfile = async () => {
     try {

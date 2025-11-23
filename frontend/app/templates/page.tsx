@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SubscriptionModal from '../components/SubscriptionModal';
@@ -42,11 +42,7 @@ export default function TemplatesPage() {
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
 
-  useEffect(() => {
-    fetchTemplates();
-  }, []);
-
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
       const response = await authenticatedFetch(`${API_BASE}/api/tasks/templates/`);
 
@@ -66,7 +62,11 @@ export default function TemplatesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,7 +147,7 @@ export default function TemplatesPage() {
         // If tasks have different dates, show the earliest one
         let targetDate = baseDate;
         if (createdTasks.length > 0) {
-          const dates = createdTasks.map((t: any) => t.due_date?.split('T')[0]).filter(Boolean);
+          const dates = createdTasks.map((t: { due_date?: string }) => t.due_date?.split('T')[0]).filter(Boolean);
           if (dates.length > 0) {
             targetDate = dates.sort()[0]; // Earliest date
           }
@@ -186,7 +186,7 @@ export default function TemplatesPage() {
     });
   };
 
-  const updateItem = (index: number, field: string, value: any) => {
+  const updateItem = (index: number, field: string, value: string | number) => {
     const newItems = [...formData.items];
     newItems[index] = { ...newItems[index], [field]: value };
     setFormData({ ...formData, items: newItems });
@@ -325,7 +325,7 @@ export default function TemplatesPage() {
                 </div>
                 {formData.items.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
-                    No items yet. Click "Add Item" to add tasks to this template.
+                    No items yet. Click &quot;Add Item&quot; to add tasks to this template.
                   </p>
                 ) : (
                   <div className="space-y-3">

@@ -52,8 +52,8 @@ export default function ForgotPasswordPage() {
           <div className="text-6xl mb-4">📧</div>
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Check Your Email</h2>
           <p className="text-gray-600 dark:text-gray-400">
-            We've sent a temporary password to <strong>{email}</strong>. Please check your inbox
-            and use it to login. You'll be asked to set a new password immediately after login.
+            We&apos;ve sent a temporary password to <strong>{email}</strong>. Please check your inbox
+            and use it to login. You&apos;ll be asked to set a new password immediately after login.
           </p>
           <Link
             href="/login"
@@ -78,7 +78,7 @@ export default function ForgotPasswordPage() {
             Forgot Password?
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            Enter your email address and we'll send you a temporary password to reset your account.
+            Enter your email address and we&apos;ll send you a temporary password to reset your account.
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>

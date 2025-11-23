@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { API_BASE } from '../lib/config';
-import { authenticatedFetch, getAuthHeaders } from '../lib/api';
+import { authenticatedFetch } from '../lib/api';
 import SubscriptionModal from '../components/SubscriptionModal';
 
 interface Task {
@@ -36,6 +36,8 @@ interface DashboardStats {
     title: string;
     due_date: string;
   }>;
+  // Allow extra keys from backend
+  [key: string]: unknown;
 }
 
 export default function DashboardPage() {
@@ -47,12 +49,7 @@ export default function DashboardPage() {
   const [showSubscribe, setShowSubscribe] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
-  useEffect(() => {
-    fetchDashboardData();
-    fetchRecentTasks();
-  }, [selectedPeriod]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       const response = await authenticatedFetch(
         `${API_BASE}/api/dashboard/?period=${selectedPeriod}`
@@ -69,9 +66,9 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod, router]);
 
-  const fetchRecentTasks = async () => {
+  const fetchRecentTasks = useCallback(async () => {
     try {
       const response = await authenticatedFetch(`${API_BASE}/api/tasks/recent/`);
 
@@ -88,7 +85,12 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error fetching recent tasks:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+    fetchRecentTasks();
+  }, [fetchDashboardData, fetchRecentTasks]);
 
   const handleDeleteOverdueTask = async (taskId: number) => {
     if (!confirm('Are you sure you want to delete this task?')) return;
@@ -135,7 +137,7 @@ export default function DashboardPage() {
     try {
       // Dynamic import for client-side only
       const { default: jsPDF } = await import('jspdf');
-      const doc = new jsPDF();
+      const doc = new jsPDF() as jsPDF & { internal: { getNumberOfPages: () => number } };
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     let yPosition = 20;
@@ -286,7 +288,7 @@ export default function DashboardPage() {
     }
 
     // Footer on each page
-    const totalPages = (doc as any).internal.getNumberOfPages();
+    const totalPages = doc.internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setFontSize(9);
@@ -366,16 +368,16 @@ export default function DashboardPage() {
       )}
       {stats && (
         <div className="mb-4">
-          {/* @ts-ignore allow extra keys from backend */}
-          {(stats as any).subscription_plan === 'trial' && (stats as any).subscription_status === 'active' && ((stats as any).trial_days_remaining ?? 0) > 0 ? (
+          {/* @ts-expect-error - allow extra keys from backend */}
+          {stats.subscription_plan === 'trial' && stats.subscription_status === 'active' && (stats.trial_days_remaining ?? 0) > 0 ? (
             <div className="rounded-lg p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
               <div className="flex items-center justify-between">
                 <span>
-                  Free trial days remaining: <strong className="text-lg">{(stats as any).trial_days_remaining}</strong> days
+                  Free trial days remaining: <strong className="text-lg">{stats.trial_days_remaining}</strong> days
                 </span>
               </div>
             </div>
-          ) : (stats as any).subscription_plan === 'trial' && ((stats as any).subscription_status === 'expired' || ((stats as any).trial_days_remaining ?? 0) === 0) ? (
+          ) : stats.subscription_plan === 'trial' && (stats.subscription_status === 'expired' || (stats.trial_days_remaining ?? 0) === 0) ? (
             <div className="rounded-lg p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 flex items-center justify-between">
               <span className="font-medium">Your trial has ended. Please subscribe to continue using the service.</span>
               <button
@@ -385,9 +387,9 @@ export default function DashboardPage() {
                 Subscribe Now
               </button>
             </div>
-          ) : (stats as any).subscription_plan !== 'trial' && (stats as any).subscription_status === 'active' ? (
+          ) : stats.subscription_plan !== 'trial' && stats.subscription_status === 'active' ? (
             <div className="rounded-lg p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200">
-              <span>Active subscription: <strong>{(stats as any).subscription_plan === 'monthly' ? 'Monthly ($20)' : 'Yearly ($200)'}</strong></span>
+              <span>Active subscription: <strong>{stats.subscription_plan === 'monthly' ? 'Monthly ($20)' : 'Yearly ($200)'}</strong></span>
             </div>
           ) : null}
         </div>

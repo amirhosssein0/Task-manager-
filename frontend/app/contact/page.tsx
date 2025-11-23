@@ -70,7 +70,7 @@ export default function ContactPage() {
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-8">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Contact Us</h1>
         <p className="text-gray-600 dark:text-gray-400 mb-8">
-          Have a question or feedback? We'd love to hear from you!
+          Have a question or feedback? We&apos;d love to hear from you!
         </p>
 
         {notification && (

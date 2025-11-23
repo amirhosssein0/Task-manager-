@@ -152,7 +152,7 @@ export default function TasksPage() {
     e.preventDefault();
     try {
       // Prepare data, cleaning up recurring fields for non-recurring tasks
-      const taskData: any = {
+      const taskData: Partial<Task> & { title: string; due_date: string; recurrence_type?: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom' | null; recurrence_interval?: number | null; recurrence_days?: number[] | null; recurrence_end_date?: string | null; recurrence_count?: number | null } = {
         title: formData.title,
         description: formData.description || '',
         due_date: formData.due_date || selectedDate,
@@ -226,7 +226,7 @@ export default function TasksPage() {
 
     try {
       // Prepare data, cleaning up recurring fields for non-recurring tasks
-      const taskData: any = {
+      const taskData: Partial<Task> & { title: string; due_date: string; recurrence_type?: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom' | null; recurrence_interval?: number | null; recurrence_days?: number[] | null; recurrence_end_date?: string | null; recurrence_count?: number | null } = {
         title: formData.title,
         description: formData.description || '',
         due_date: formData.due_date,
@@ -452,13 +452,6 @@ export default function TasksPage() {
   const completedCount = filteredTasks.filter((t) => t.completed).length;
   const totalCount = filteredTasks.length;
   const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  const labelClasses: Record<string, string> = {
-    none: 'bg-transparent border-gray-300 dark:border-slate-500',
-    yellow: 'bg-yellow-400 border-yellow-500',
-    green: 'bg-green-400 border-green-500',
-    blue: 'bg-blue-400 border-blue-500',
-    red: 'bg-red-400 border-red-500',
-  };
   const labelTagClasses: Record<string, string> = {
     yellow: 'bg-yellow-400 text-yellow-900',
     green: 'bg-green-400 text-green-900',
@@ -706,7 +699,7 @@ export default function TasksPage() {
                           />
                           <select
                             value={formData.recurrence_type}
-                            onChange={(e) => setFormData({ ...formData, recurrence_type: e.target.value as any })}
+                            onChange={(e) => setFormData({ ...formData, recurrence_type: e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom' })}
                             className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500"
                           >
                             <option value="daily">Day(s)</option>

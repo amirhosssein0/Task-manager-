@@ -7,12 +7,20 @@ import { API_BASE } from './lib/config';
 
 export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
-  const [isAuthed, setIsAuthed] = useState(false);
-  const [billing, setBilling] = useState<{ plan?: string; status?: string; trial_days_remaining?: number; days_remaining?: number } | null>(null);
+  const [isAuthed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem('access_token');
+    }
+    return false;
+  });
+  const [billing, setBilling] = useState<{ plan?: string; status?: string; trial_days_remaining?: number; days_remaining?: number } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const token = localStorage.getItem('access_token');
+    return token ? null : null; // Will be fetched in useEffect
+  });
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
-    setIsAuthed(!!token);
     // fetch billing status if logged in
     if (token) {
       fetch(`${API_BASE}/api/billing/status/`, {
@@ -24,8 +32,6 @@ export default function HomePage() {
         .then((r) => r.ok ? r.json() : null)
         .then((data) => data && setBilling(data))
         .catch(() => {});
-    } else {
-      setBilling(null);
     }
   }, []);
 
@@ -118,7 +124,7 @@ export default function HomePage() {
         <h2 className="text-2xl font-semibold mb-3">Ready to boost your productivity?</h2>
         <p className="text-base mb-4 opacity-90">
           {isAuthed && billing && billing.status === 'active' && billing.plan !== 'trial' ? (
-            <>🎉 You're on Premium Plan!</>
+            <>🎉 You&apos;re on Premium Plan!</>
           ) : isAuthed && billing && billing.plan === 'trial' && billing.status === 'active' ? (
             <>Free trial: <strong>{billing.trial_days_remaining ?? billing.days_remaining ?? 0}</strong> days remaining</>
           ) : (

@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 export default function AboutPage() {
-  const [isAuthed, setIsAuthed] = useState(false);
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    setIsAuthed(!!token);
-  }, []);
+  const [isAuthed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem('access_token');
+    }
+    return false;
+  });
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">

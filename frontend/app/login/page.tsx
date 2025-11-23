@@ -84,7 +84,7 @@ export default function LoginPage() {
           setErrors({ general: 'Invalid credentials' });
         }
       }
-    } catch (error) {
+    } catch {
       setErrors({ general: 'Connection error. Please try again.' });
     } finally {
       setLoading(false);

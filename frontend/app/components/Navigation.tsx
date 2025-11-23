@@ -20,7 +20,7 @@ export default function Navigation() {
       if (payload?.exp && payload.exp * 1000 > Date.now()) {
         return true;
       }
-    } catch (error) {
+    } catch {
       // fall through to cleanup below
     }
 
