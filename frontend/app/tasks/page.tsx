@@ -166,15 +166,15 @@ export default function TasksPage() {
         taskData.recurrence_type = formData.recurrence_type;
         taskData.recurrence_interval = formData.recurrence_interval;
         taskData.recurrence_days = formData.recurrence_days || [];
-        taskData.recurrence_end_date = formData.recurrence_end_date || null;
-        taskData.recurrence_count = formData.recurrence_count || null;
+        taskData.recurrence_end_date = formData.recurrence_end_date || undefined;
+        taskData.recurrence_count = formData.recurrence_count || undefined;
       } else {
-        // For non-recurring tasks, explicitly set to null/empty
-        taskData.recurrence_type = null;
+        // For non-recurring tasks, explicitly set to undefined/empty
+        taskData.recurrence_type = undefined;
         taskData.recurrence_interval = 1;
         taskData.recurrence_days = [];
-        taskData.recurrence_end_date = null;
-        taskData.recurrence_count = null;
+        taskData.recurrence_end_date = undefined;
+        taskData.recurrence_count = undefined;
       }
 
       const response = await authenticatedFetch(`${API_BASE}/api/tasks/`, {
@@ -240,15 +240,15 @@ export default function TasksPage() {
         taskData.recurrence_type = formData.recurrence_type;
         taskData.recurrence_interval = formData.recurrence_interval;
         taskData.recurrence_days = formData.recurrence_days || [];
-        taskData.recurrence_end_date = formData.recurrence_end_date || null;
-        taskData.recurrence_count = formData.recurrence_count || null;
+        taskData.recurrence_end_date = formData.recurrence_end_date || undefined;
+        taskData.recurrence_count = formData.recurrence_count || undefined;
       } else {
-        // For non-recurring tasks, explicitly set to null/empty
-        taskData.recurrence_type = null;
+        // For non-recurring tasks, explicitly set to undefined/empty
+        taskData.recurrence_type = undefined;
         taskData.recurrence_interval = 1;
         taskData.recurrence_days = [];
-        taskData.recurrence_end_date = null;
-        taskData.recurrence_count = null;
+        taskData.recurrence_end_date = undefined;
+        taskData.recurrence_count = undefined;
       }
 
       const response = await authenticatedFetch(`${API_BASE}/api/tasks/${editingTask.id}/`, {

@@ -137,7 +137,7 @@ export default function DashboardPage() {
     try {
       // Dynamic import for client-side only
       const { default: jsPDF } = await import('jspdf');
-      const doc = new jsPDF() as jsPDF & { internal: { getNumberOfPages: () => number } };
+      const doc = new jsPDF() as InstanceType<typeof jsPDF> & { internal: { getNumberOfPages: () => number } };
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     let yPosition = 20;
@@ -368,7 +368,6 @@ export default function DashboardPage() {
       )}
       {stats && (
         <div className="mb-4">
-          {/* @ts-expect-error - allow extra keys from backend */}
           {stats.subscription_plan === 'trial' && stats.subscription_status === 'active' && (stats.trial_days_remaining ?? 0) > 0 ? (
             <div className="rounded-lg p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
               <div className="flex items-center justify-between">
