@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Function to wait for database
 wait_for_db() {
     if [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ]; then
         echo "Database configuration not found, skipping database wait..."
@@ -42,10 +41,8 @@ except Exception as e:
     return 1
 }
 
-# Wait for database
 wait_for_db || echo "Continuing without database connection..."
 
-# Run migrations (only if database is configured)
 if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
     echo "Running migrations..."
     python manage.py migrate --noinput || echo "Migration failed, continuing..."
@@ -53,11 +50,9 @@ else
     echo "Skipping migrations (no database configuration)"
 fi
 
-# Collect static files
 echo "Collecting static files..."
 python manage.py collectstatic --noinput || echo "Static files collection failed, continuing..."
 
-# Execute the command passed to the entrypoint
 echo "Starting application..."
 exec "$@"
 
