@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from datetime import timedelta
+from typing import Optional
 from celery.schedules import crontab
 try:
     from dotenv import load_dotenv
@@ -26,6 +27,13 @@ if load_dotenv:
     load_dotenv(BASE_DIR / '.env.dev')
 
 
+def _split_list(value: Optional[str]):
+    """Return a cleaned list for comma separated env vars."""
+    if not value:
+        return []
+    return [item.strip() for item in value.split(',') if item.strip()]
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -35,8 +43,10 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DJANGO_DEBUG')
 
-_allowed_hosts = os.getenv('DJANGO_ALLOWED_HOSTS', '')
-ALLOWED_HOSTS = [h for h in _allowed_hosts.split(',') if h] if _allowed_hosts else []
+_allowed_hosts = _split_list(os.getenv('DJANGO_ALLOWED_HOSTS'))
+_safe_defaults = {'localhost', '127.0.0.1', 'backend', 'frontend', 'nginx'}
+# Ensure Docker-compose + host access always stay whitelisted.
+ALLOWED_HOSTS = sorted(_safe_defaults.union(_allowed_hosts))
 
 
 # Application definition
@@ -189,11 +199,21 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-_cors_origins = os.getenv('CORS_ALLOWED_ORIGINS')
-CORS_ALLOWED_ORIGINS = [o for o in _cors_origins.split(',') if o]
-
-_csrf_trusted = os.getenv('CSRF_TRUSTED_ORIGINS')
-CSRF_TRUSTED_ORIGINS = [o for o in _csrf_trusted.split(',') if o]
+_cors_origins = set(_split_list(os.getenv('CORS_ALLOWED_ORIGINS')))
+_csrf_trusted = set(_split_list(os.getenv('CSRF_TRUSTED_ORIGINS')))
+_local_origin_defaults = {
+    'http://localhost',
+    'http://localhost:80',
+    'http://localhost:3000',
+    'http://127.0.0.1',
+    'http://127.0.0.1:80',
+    'http://127.0.0.1:3000',
+    'http://frontend:3000',
+    'http://backend:8089',
+}
+# Append local origins so Nginx proxy + dockerized frontend work out of the box.
+CORS_ALLOWED_ORIGINS = sorted(_cors_origins.union(_local_origin_defaults))
+CSRF_TRUSTED_ORIGINS = sorted(_csrf_trusted.union(_local_origin_defaults))
 
 _access_token_minutes = os.getenv('ACCESS_TOKEN_MINUTES')
 if _access_token_minutes is not None:
