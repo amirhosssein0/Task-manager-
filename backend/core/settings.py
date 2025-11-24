@@ -23,7 +23,7 @@ except ImportError:
 BASE_DIR = Path(__file__).resolve().parent.parent
 if load_dotenv:
     # Load environment variables from backend/.env
-    load_dotenv(BASE_DIR / '.env')
+    load_dotenv(BASE_DIR / '.env.dev')
 
 
 # Quick-start development settings - unsuitable for production
