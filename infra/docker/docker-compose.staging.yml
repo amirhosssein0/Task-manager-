@@ -56,6 +56,12 @@ services:
       context: ../../backend
     container_name: task_manager_celery_worker_stag
     command: celery -A core worker --loglevel=info
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A core inspect ping -d celery@$$HOSTNAME | grep -q pong"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
     env_file:
       - ../../backend/.env.staging
     environment:
@@ -76,6 +82,12 @@ services:
       context: ../../backend
     container_name: task_manager_celery_beat_stag
     command: celery -A core beat --loglevel=info
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'celery beat' >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
     env_file:
       - ../../backend/.env.staging
     environment:
