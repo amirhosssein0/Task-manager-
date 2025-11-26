@@ -26,6 +26,7 @@ if load_dotenv:
     # Load environment variables from backend/.env
     load_dotenv(BASE_DIR / '.env.dev')
 
+DJANGO_ENV = os.getenv('DJANGO_ENV')
 
 def _split_list(value: Optional[str]):
     """Return a cleaned list for comma separated env vars."""
@@ -171,9 +172,28 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
+if DJANGO_ENV == "prod":
+    AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
+    AWS_S3_CUSTOM_DOMAIN = os.getenv(
+        "AWS_S3_CUSTOM_DOMAIN",
+        f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com" if AWS_STORAGE_BUCKET_NAME else None,
+    )
+
+    # آدرس مدیا روی باکت / CDN
+    MEDIA_URL = os.getenv(
+        "MEDIA_URL",
+        f"https://{AWS_S3_CUSTOM_DOMAIN}/media/" if AWS_S3_CUSTOM_DOMAIN else "/media/",
+    )
+
+    # وقتی خواستی واقعا S3 رو فعال کنی، این دو خط رو بعداً فعال می‌کنی:
+    # INSTALLED_APPS += ["storages"]
+    # DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
+
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'static'
-MEDIA_URL = '/media/'
+MEDIA_URL = os.getenv('MEDIA_URL')
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Email settings (SMTP)

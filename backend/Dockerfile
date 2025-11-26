@@ -30,6 +30,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1000 django && \
