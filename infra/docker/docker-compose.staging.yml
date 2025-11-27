@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: task_manager
       POSTGRES_PASSWORD: Asdfghjkl0
     volumes:
-      - ../data/postgres-stag:/var/lib/postgresql/data
+      - postgres_stag_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
@@ -32,11 +32,12 @@ services:
   backend:
     build:
       context: ../../backend
+    image: task_manager_backend_stag
     container_name: task_manager_backend_stag
-    command: gunicorn core.wsgi:application --bind 0.0.0.0:8089
     env_file:
       - ../../backend/.env.staging
     environment:
+      RUN_MIGRATIONS: "true"                
       DB_HOST: postgres
       DB_PORT: 5432
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -52,19 +53,13 @@ services:
         condition: service_healthy
 
   celery-worker:
-    build:
-      context: ../../backend
+    image: task_manager_backend_stag
     container_name: task_manager_celery_worker_stag
     command: celery -A core worker --loglevel=info
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A core inspect ping -d celery@$$HOSTNAME | grep -q pong"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
     env_file:
       - ../../backend/.env.staging
     environment:
+      RUN_MIGRATIONS: "false"
       DB_HOST: postgres
       DB_PORT: 5432
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -78,19 +73,13 @@ services:
         condition: service_healthy
 
   celery-beat:
-    build:
-      context: ../../backend
+    image: task_manager_backend_stag
     container_name: task_manager_celery_beat_stag
     command: celery -A core beat --loglevel=info
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery beat' >/dev/null"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
     env_file:
       - ../../backend/.env.staging
     environment:
+      RUN_MIGRATIONS: "false"
       DB_HOST: postgres
       DB_PORT: 5432
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -107,12 +96,12 @@ services:
     image: node:20-alpine
     container_name: task_manager_frontend_stag
     working_dir: /app
-    command: sh -c "npm install && npm run build && npm run start --hostname 0.0.0.0 --port 3000"
+    command: sh -c "npm install && npm run build && npm run start -- --hostname 0.0.0.0 --port 3000"
     env_file:
       - ../../frontend/.env.staging
     environment:
       API_BASE_INTERNAL: http://backend:8089
-      NODE_ENV: staging
+      NODE_ENV: production
     volumes:
       - ../../frontend:/app
       - frontend_node_modules_stag:/app/node_modules
@@ -122,18 +111,6 @@ services:
   nginx:
     image: nginx:1.27-alpine
     container_name: task_manager_nginx_stag
-    command: >
-      sh -c "
-        until nc -z backend 8089; do
-          echo 'Waiting for backend...';
-          sleep 2;
-        done;
-        until nc -z frontend 3000; do
-          echo 'Waiting for frontend...';
-          sleep 2;
-        done;
-        exec nginx -g 'daemon off;'
-      "
     depends_on:
       - backend
       - frontend
@@ -146,6 +123,7 @@ services:
       - backend_media_stag:/var/www/backend/media:ro
 
 volumes:
+  postgres_stag_data:
   backend_media_stag:
   frontend_node_modules_stag:
   backend_static_stag:

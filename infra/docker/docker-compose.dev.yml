@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: task_manager
       POSTGRES_PASSWORD: Asdfghjkl0
     volumes:
-      - ../data/postgres-dev:/var/lib/postgresql/data
+      - postgres_dev_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
@@ -30,13 +30,13 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: ../../backend
+    image: task_manager_backend_dev         
     container_name: task_manager_backend_dev
     command: python manage.py runserver 0.0.0.0:8089
     env_file:
       - ../../backend/.env.dev
     environment:
+      RUN_MIGRATIONS: "true"                 
       DJANGO_ALLOWED_HOSTS: backend,localhost,127.0.0.1
       DB_HOST: postgres
       DB_PORT: 5432
@@ -55,19 +55,13 @@ services:
         condition: service_healthy
 
   celery-worker:
-    build:
-      context: ../../backend
+    image: task_manager_backend_dev
     container_name: task_manager_celery_worker_dev
     command: celery -A core worker --loglevel=info
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A core inspect ping -d celery@$$HOSTNAME | grep -q pong"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
     env_file:
       - ../../backend/.env.dev
     environment:
+      RUN_MIGRATIONS: "false"          
       DB_HOST: postgres
       DB_PORT: 5432
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -81,19 +75,13 @@ services:
         condition: service_healthy
 
   celery-beat:
-    build:
-      context: ../../backend
+    image: task_manager_backend_dev
     container_name: task_manager_celery_beat_dev
     command: celery -A core beat --loglevel=info
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery beat' >/dev/null"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
     env_file:
       - ../../backend/.env.dev
     environment:
+      RUN_MIGRATIONS: "false"
       DB_HOST: postgres
       DB_PORT: 5432
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -124,18 +112,6 @@ services:
   nginx:
     image: nginx:1.27-alpine
     container_name: task_manager_nginx_dev
-    command: >
-      sh -c "
-        until nc -z backend 8089; do
-          echo 'Waiting for backend...';
-          sleep 2;
-        done;
-        until nc -z frontend 3000; do
-          echo 'Waiting for frontend...';
-          sleep 2;
-        done;
-        exec nginx -g 'daemon off;'
-      "
     depends_on:
       - backend
       - frontend
@@ -148,6 +124,7 @@ services:
       - backend_media_dev:/var/www/backend/media:ro
 
 volumes:
+  postgres_dev_data:
   backend_media_dev:
   frontend_node_modules_dev:
   backend_static_dev:
@@ -155,4 +132,3 @@ volumes:
 networks:
   default:
     name: task_manager_dev
-
