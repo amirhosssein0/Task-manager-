@@ -1,4 +1,4 @@
-import { test,expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import { signup, logout, DEFAULT_PASSWORD } from './utils/auth';
 
 test.beforeEach(async ({ page }) => {

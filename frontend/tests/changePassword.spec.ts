@@ -1,4 +1,4 @@
-import { test, Page } from '@playwright/test';
+import { test } from '@playwright/test';
 import { signup, logout, DEFAULT_PASSWORD } from './utils/auth';
 
 const PASSWORD = DEFAULT_PASSWORD;

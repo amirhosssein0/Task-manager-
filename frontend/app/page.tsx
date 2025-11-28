@@ -7,32 +7,44 @@ import { API_BASE } from './lib/config';
 
 export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
-  const [isAuthed] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !!localStorage.getItem('access_token');
-    }
-    return false;
-  });
-  const [billing, setBilling] = useState<{ plan?: string; status?: string; trial_days_remaining?: number; days_remaining?: number } | null>(() => {
-    if (typeof window === 'undefined') return null;
-    const token = localStorage.getItem('access_token');
-    return token ? null : null; // Will be fetched in useEffect
-  });
+  // Always start with false to avoid hydration mismatch
+  // Will be updated in useEffect after mount
+  const [isAuthed, setIsAuthed] = useState(false);
+  const [billing, setBilling] = useState<{ plan?: string; status?: string; trial_days_remaining?: number; days_remaining?: number } | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    // fetch billing status if logged in
-    if (token) {
-      fetch(`${API_BASE}/api/billing/status/`, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      })
-        .then((r) => r.ok ? r.json() : null)
-        .then((data) => data && setBilling(data))
-        .catch(() => {});
-    }
+    const syncAuthState = () => {
+      const token = localStorage.getItem('access_token');
+      const authenticated = !!token;
+      setIsAuthed(authenticated);
+
+      // fetch billing status if logged in
+      if (token) {
+        fetch(`${API_BASE}/api/billing/status/`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        })
+          .then((r) => r.ok ? r.json() : null)
+          .then((data) => data && setBilling(data))
+          .catch(() => {});
+      } else {
+        setBilling(null);
+      }
+    };
+
+    // Initial check after mount
+    syncAuthState();
+
+    // Listen for auth changes (e.g., login/logout in other tabs)
+    window.addEventListener('auth-change', syncAuthState);
+    window.addEventListener('storage', syncAuthState);
+
+    return () => {
+      window.removeEventListener('auth-change', syncAuthState);
+      window.removeEventListener('storage', syncAuthState);
+    };
   }, []);
 
   const handleSubscriptionSuccess = () => {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { API_BASE } from '../lib/config';
 import { authenticatedFetch, getValidAccessToken } from '../lib/api';
 import Link from 'next/link';
@@ -250,7 +251,7 @@ export default function ProfilePage() {
         {/* Profile Header */}
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 pb-8 border-b">
           <div className="relative">
-            <div className="w-32 h-32 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center overflow-hidden">
+            <div className="w-32 h-32 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center overflow-hidden relative">
               {profile.profile_picture ? (
                 (() => {
                   const raw = (profile.profile_picture as unknown as string) || '';
@@ -260,20 +261,24 @@ export default function ProfilePage() {
                       : '';
                   if (raw.startsWith('http')) {
                     return (
-                      <img
+                      <Image
                         src={raw}
                         alt="Profile"
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
+                        unoptimized
                       />
                     );
                   }
                   const clean = raw.startsWith('/') ? raw.slice(1) : raw;
                   const normalized = `${base}/${clean}`;
                   return (
-                    <img
+                    <Image
                       src={normalized}
                       alt="Profile"
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
+                      unoptimized
                     />
                   );
                 })()
