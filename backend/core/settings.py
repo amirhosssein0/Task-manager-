@@ -180,13 +180,13 @@ if DJANGO_ENV == "prod":
         f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com" if AWS_STORAGE_BUCKET_NAME else None,
     )
 
-    # آدرس مدیا روی باکت / CDN
+    #bucket/ CDN
     MEDIA_URL = os.getenv(
         "MEDIA_URL",
         f"https://{AWS_S3_CUSTOM_DOMAIN}/media/" if AWS_S3_CUSTOM_DOMAIN else "/media/",
     )
 
-    # وقتی خواستی واقعا S3 رو فعال کنی، این دو خط رو بعداً فعال می‌کنی:
+    # S3
     # INSTALLED_APPS += ["storages"]
     # DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 
