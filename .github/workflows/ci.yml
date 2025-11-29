@@ -16,8 +16,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      DJANGO_SECRET_KEY: django-insecure-7exf4-py_o#^w0omrk)(%ct&f#t+se(b%txl+=^yj7lh0@9ho_
       DJANGO_ENV: dev 
       EMAIL_PORT: 587
+
       
 
     steps:
