@@ -16,7 +16,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DJANGO_ENV: dev       
+      DJANGO_ENV: dev 
+      EMAIL_PORT: 587
+      
 
     steps:
       - name: Checkout code
