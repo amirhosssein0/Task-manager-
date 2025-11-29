@@ -130,7 +130,7 @@ jobs:
       - name: Start dev stack (Docker Compose)
         working-directory: ./infra/docker/
         run: |
-          docker compose -f infra/docker/docker-compose.dev.yml up --build
+          docker compose -f docker-compose.dev.yml up --build
 
       - name: Wait for frontend on http://localhost:3000
         run: |
